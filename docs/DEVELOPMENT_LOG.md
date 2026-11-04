@@ -5965,3 +5965,21 @@ binary. The package SHA-256 is:
 ```text
 14b35a7c2855491384c477ac74a2f40212096653ad1c8d2122f739816d1452f5
 ```
+
+`main` requires a pull request with the offline test check, so the feature
+commit `21d3356` and the release commit `be85d8b` reach `main` through a pull
+request merged with a merge commit, which keeps the release commit unchanged.
+The `v1.3.4` tag is then put on `be85d8b`, and the GitHub release is
+published with this ZIP once its uploaded digest matches.
+
+With no CD Player running, no `ChangedOutputRates` record pending and the
+earlier test build quit, `/Applications/CDPlayer.app` 1.3.3 (build 7) was
+replaced by the app from the ZIP. The installed app reports 1.3.4 (build 8),
+both architectures and the bundle identifier `io.github.ylau674.CDPlayer`. It
+is identical to the ZIP's app, passes strict code-signature verification with
+an ad-hoc signature and the hardened runtime, has CDHash
+`9e4c91a16064cd4488e430b29840ce83a28b92e1`, and has no quarantine flag. The
+settings domain is unchanged, so the owner's settings, including the saved
+transparency, carry over. The new ad-hoc signature may make macOS ask again
+for removable-volume access at the first Play. The app was not launched as
+part of the update.
