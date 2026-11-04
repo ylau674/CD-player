@@ -208,7 +208,7 @@ final class OutputStatusLineTests: XCTestCase {
     }
 
     func testOnlyThePanelFillIsTranslucentUnlessReduceTransparencyIsOn() async throws {
-        XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: false), 0.3, accuracy: 0.001)
+        XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: false), 0.85, accuracy: 0.001)
         XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: true), 1)
         let model = PlayerModel.offline()
         await model.inspectOutput()

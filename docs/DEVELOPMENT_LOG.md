@@ -5983,3 +5983,27 @@ settings domain is unchanged, so the owner's settings, including the saved
 transparency, carry over. The new ad-hoc signature may make macOS ask again
 for removable-volume access at the first Play. The app was not launched as
 part of the update.
+
+## Initial transparency default (2026-11-05)
+
+The owner asked for a fresh installation to start at 15% background
+transparency. `PanelTransparency` now uses 15% when no preference exists, and
+the menu's Reset command restores 15%. A valid saved preference is left
+untouched, so upgrading an existing installation does not change its chosen
+level. Invalid saved values are still repaired to the new default.
+
+The README, architecture description, development milestone and Unreleased
+changelog entry now describe the current behavior. The 1.3.4 release entry
+above remains historical: that release used 70% as its initial default.
+
+Validation passed:
+
+- `swift test --package-path Packages/CDKit`: 464 CDKit and 29 AudioCheck
+  tests.
+- `swift test --package-path Packages/CDKit --sanitize=address`: the same
+  suites.
+- `swift test --package-path Packages/CDKit --sanitize=thread`: the same
+  suites.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 31 native UI tests.

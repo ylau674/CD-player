@@ -6,6 +6,11 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- New installations start with the player panel 15% transparent, and Reset
+  restores 15%. Existing saved transparency settings are preserved.
+
 ## [1.3.4] - 2026-11-04
 
 ### Changed

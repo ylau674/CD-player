@@ -4,7 +4,7 @@ import OSLog
 
 @MainActor
 public final class PanelTransparency: ObservableObject {
-    public static let defaultPercentage = 70.0
+    public static let defaultPercentage = 15.0
     public static let range = 0.0...90.0
     public static let defaultsKey = "BackgroundTransparency"
 

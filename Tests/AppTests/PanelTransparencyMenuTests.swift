@@ -53,7 +53,7 @@ final class PanelTransparencyMenuTests: XCTestCase {
         let submenu = try XCTUnwrap(hosting.items.first?.submenu)
         XCTAssertEqual(submenu.title, "Background Transparency")
         XCTAssertNil(controller.sliderItem.view, "The slider view should be created only when the submenu first opens")
-        XCTAssertEqual(submenu.items.map(\.title), ["Reset to 70%"])
+        XCTAssertEqual(submenu.items.map(\.title), ["Reset to 15%"])
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 300, height: 100),
             styleMask: [.borderless], backing: .buffered, defer: false
@@ -106,9 +106,9 @@ final class PanelTransparencyMenuTests: XCTestCase {
             XCTAssertTrue(examined)
         }
         XCTAssertEqual(setting.percentage, 90)
-        let reset = try XCTUnwrap(submenu.items.firstIndex(where: { $0.title == "Reset to 70%" }))
+        let reset = try XCTUnwrap(submenu.items.firstIndex(where: { $0.title == "Reset to 15%" }))
         submenu.performActionForItem(at: reset)
-        XCTAssertEqual(setting.percentage, 70)
+        XCTAssertEqual(setting.percentage, 15)
         XCTAssertEqual(submenu.items.compactMap { $0.view as? PanelTransparencyMenuView }.count, 1)
         let replacement = NSMenu(title: PanelTransparencyCommands.title)
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: replacement)
@@ -117,7 +117,7 @@ final class PanelTransparencyMenuTests: XCTestCase {
     }
 
     func testSliderSurvivesSwiftUIRefillingOrReplacingTheSubmenu() throws {
-        let titles = ["Reset to 70%"]
+        let titles = ["Reset to 15%"]
         let mainMenu = NSMenu(title: "Main")
         let viewMenu = NSMenu(title: "View")
         mainMenu.addItem(withTitle: "View", action: nil, keyEquivalent: "").submenu = viewMenu
@@ -152,20 +152,20 @@ final class PanelTransparencyMenuTests: XCTestCase {
         for title in titles { submenu.addItem(withTitle: title, action: nil, keyEquivalent: "") }
         assertInstalled(submenu, after: titles)
         submenu.removeItem(at: 0)
-        submenu.insertItem(withTitle: "Reset to 70%", action: nil, keyEquivalent: "", at: 0)
+        submenu.insertItem(withTitle: "Reset to 15%", action: nil, keyEquivalent: "", at: 0)
         assertInstalled(submenu, after: titles)
 
         // A replacement submenu takes the one slider, whether it is filled before or after attaching.
         let replacement = NSMenu(title: PanelTransparencyCommands.title)
-        replacement.addItem(withTitle: "Reset to 70%", action: nil, keyEquivalent: "")
-        assertInstalled(replacement, after: ["Reset to 70%"])
+        replacement.addItem(withTitle: "Reset to 15%", action: nil, keyEquivalent: "")
+        assertInstalled(replacement, after: ["Reset to 15%"])
         XCTAssertFalse(submenu.items.contains(controller.sliderItem))
         let prefilled = NSMenu(title: "Pending")
-        prefilled.addItem(withTitle: "Reset to 70%", action: nil, keyEquivalent: "")
+        prefilled.addItem(withTitle: "Reset to 15%", action: nil, keyEquivalent: "")
         prefilled.title = PanelTransparencyCommands.title
         parent.submenu = prefilled
         viewMenu.itemChanged(parent)
-        assertInstalled(prefilled, after: ["Reset to 70%"])
+        assertInstalled(prefilled, after: ["Reset to 15%"])
         XCTAssertFalse(replacement.items.contains(controller.sliderItem))
 
         playback.addItem(withTitle: "Play", action: nil, keyEquivalent: "")
@@ -180,7 +180,7 @@ final class PanelTransparencyMenuTests: XCTestCase {
         let controller = PanelTransparencyMenuController(transparency: setting)
         defer { withExtendedLifetime(controller) {} }
         let menu = NSMenu(title: PanelTransparencyCommands.title)
-        menu.addItem(withTitle: "Reset to 70%", action: nil, keyEquivalent: "")
+        menu.addItem(withTitle: "Reset to 15%", action: nil, keyEquivalent: "")
         XCTAssertNil(controller.sliderItem.view)
         NotificationCenter.default.post(name: NSMenu.didBeginTrackingNotification, object: menu)
         XCTAssertTrue(menu.items.last === controller.sliderItem)
