@@ -5646,6 +5646,28 @@ copied from the old preferences domain to the new one, and the old domain was
 left in place. macOS is expected to ask again for removable-volume access at
 the first Play. The app was not launched as part of the update.
 
+### After publication (2026-11-04)
+
+The repository was made public. Private vulnerability reporting, secret
+scanning and push protection are enabled, and `main` is protected as
+described in [publishing](PUBLISHING.md). The archive repository was then
+renamed `ylau674/CD-player-private`. In the local clone its remote is now
+`private`, which still fetches no tags. A local pre-push guard refuses to push
+private branches, or history not descended from the public root commit, to
+the public repository.
+
+The installed 1.3.3 was checked on the owner's audio CD. The owner confirmed
+that Pause/Resume and Next/Previous worked. Logs showed zero underrun frames
+and zero concealed sectors. The selected output ran at 44.1 kHz during
+playback and returned to 48 kHz on quit, and the pending rate-recovery record
+was cleared. The chosen output and the Decode HDCD preference persisted across
+quit and relaunch, and the reopened app showed ready rather than
+`OUTPUT LOST`. System volume and mute were left unchanged.
+
+The drive accepted the minimum-speed request but reported a different rate,
+so the speed request remains best effort. One initial C2-enabled read took
+2.9 seconds but succeeded, with no concealed sectors or playback underruns.
+
 ## M10: SACD
 
 The draft scope, design and proposed sub-milestones are in the

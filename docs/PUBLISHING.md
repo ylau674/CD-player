@@ -6,14 +6,17 @@ and what remains before and after making the repository public.
 ## Current state
 
 - The repository is [ylau674/CD-player](https://github.com/ylau674/CD-player),
-  under the owner's personal account. It is **private** until the owner
-  changes its visibility.
-- It was created on 2026-11-04 with fresh history: one squashed commit holding
-  version 1.3.3, authored as `ylau674` with the GitHub no-reply address.
+  under the owner's personal account. It has been **public** since
+  2026-11-04.
+- It was created on 2026-11-04 with fresh history: a squashed version 1.3.3
+  commit followed by documentation updates, authored as `ylau674` with the
+  GitHub no-reply address.
   `v1.3.3` is the latest release.
 - The development history and releases 1.0.0–1.3.2 are in the private
-  repository `ylau674/CD-player-archive`, which stays private. Commit hashes
-  cited in the [development log](DEVELOPMENT_LOG.md) and the
+  repository `ylau674/CD-player-private`, which stays private. It was named
+  `CD-player-archive` at publication and now also holds work under private
+  evaluation. Commit hashes cited in the
+  [development log](DEVELOPMENT_LOG.md) and the
   [validation logs](validation/) refer to it.
 - The project is licensed under Apache-2.0 ([LICENSE](../LICENSE),
   [NOTICE](../NOTICE)). The vendored libhdcd keeps its BSD 2-Clause licence,
@@ -22,10 +25,19 @@ and what remains before and after making the repository public.
   package an app without them.
 - [CONTRIBUTING.md](../CONTRIBUTING.md), [SECURITY.md](../SECURITY.md) and
   issue and pull-request templates are in place.
+- Private vulnerability reporting, secret scanning and push protection are
+  enabled. The `main` branch requires the offline test check and one
+  pull-request approval; force pushes and deletion are blocked. The owner
+  account is exempt from enforcement. Projects and Wiki are disabled, and
+  repository topics are set.
 - Release ZIPs are not committed: `build/` is ignored. They are attached to
   GitHub releases.
 
-## Make the repository public
+## Public repository setup (completed 2026-11-04)
+
+The following checklist records the publication steps and the commands used.
+The visibility change is complete; changing it back cannot withdraw copies,
+forks or caches made while public.
 
 1. Check once more for personal data. The search below should print only the
    app icon's `@2x` file names and the GitHub no-reply address. The
@@ -38,8 +50,7 @@ and what remains before and after making the repository public.
 
 2. Confirm that you hold the rights to release the app icon under
    Apache-2.0.
-3. Change the visibility. It can be changed back, but clones, forks and
-   caches made while public cannot be withdrawn.
+3. Change the visibility:
 
    ```sh
    gh repo edit ylau674/CD-player --visibility public --accept-visibility-change-consequences
@@ -161,6 +172,9 @@ git checkout --orphan public main
 git commit -m "CD Player 1.3.3"
 ```
 
+After publication, the archive repository was renamed `CD-player-private`;
+GitHub redirects the old name.
+
 ## Continue on another Mac
 
 ```sh
@@ -171,11 +185,16 @@ git config user.name  "ylau674"
 git config user.email "36315627+ylau674@users.noreply.github.com"
 ```
 
-To read the earlier history as well:
+To read the earlier history and private work as well (owner only):
 
 ```sh
-git remote add archive https://github.com/ylau674/CD-player-archive.git
-git fetch archive
+git remote add --no-tags private https://github.com/ylau674/CD-player-private.git
+git fetch private
 ```
+
+`--no-tags` keeps the private repository's pre-publication tags out of the
+clone, so that `git push --tags` cannot send that history here. Before pushing
+from a clone with both remotes, install the pre-push guard kept in the private
+repository; it refuses to push private branches or history to this one.
 
 Then follow [new-Mac setup](DEVELOPMENT.md#set-up-a-new-mac).
