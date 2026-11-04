@@ -20,7 +20,7 @@ concealment instead of noisy re-reads.
 *Ready to play a three-track CD, with audio levels shown. The meters stay dark
 while stopped.*
 
-**Status:** [version 1.3.4 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.4).
+**Status:** [version 1.3.5 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.5).
 M6.1–M6.5, M8 and M9 are complete and hardware-checked on one
 Mac with a Pioneer BDR-XS07U drive. Tested outputs include the built-in
 speakers and wired headphones, beyerdynamic PRO X, Sony WALKMAN USB DAC,
@@ -214,7 +214,7 @@ The script builds the universal Release app with the hardened runtime and an
 ad-hoc signature. It verifies the build and writes
 `build/packages/CDPlayer-<version>-macOS.zip`. Install by dragging
 `CDPlayer.app` from the ZIP into `/Applications`.
-The current [1.3.4 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.4/CDPlayer-1.3.4-macOS.zip)
+The current [1.3.5 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.5/CDPlayer-1.3.5-macOS.zip)
 is also available on GitHub. Compare its SHA-256 with the digest on the
 release page; see [security](SECURITY.md).
 

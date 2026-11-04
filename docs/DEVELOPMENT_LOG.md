@@ -5884,6 +5884,21 @@ Validation passed:
   `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
   all 31 native UI tests.
 
+### Version 1.3.5 (2026-11-05)
+
+The 464 CDKit and 29 AudioCheck tests pass normally and under both
+AddressSanitizer and ThreadSanitizer, and all 31 native UI tests pass.
+
+Version 1.3.5 (build 9) is packaged as `CDPlayer-1.3.5-macOS.zip`. The
+packaging script confirmed the bundle identifier, credits and copyright. The
+extracted app has the expected version, macOS 14 minimum, both `arm64` and
+`x86_64` architectures, and a valid ad-hoc signature with the hardened
+runtime. It has no home-folder paths in its binary. The package SHA-256 is:
+
+```text
+019e4e520c73676480ea16a4b3b2327bb364ac53fe5a4a27659e8c3a2c6c0f0b
+```
+
 Synthetic events go through real menu tracking, but they are not a physical
 mouse; the owner should confirm dragging on screen. No live hardware checks,
 installation or playback were performed.
@@ -5992,7 +6007,7 @@ the menu's Reset command restores 15%. A valid saved preference is left
 untouched, so upgrading an existing installation does not change its chosen
 level. Invalid saved values are still repaired to the new default.
 
-The README, architecture description, development milestone and Unreleased
+The README, architecture description, development milestone and 1.3.5
 changelog entry now describe the current behavior. The 1.3.4 release entry
 above remains historical: that release used 70% as its initial default.
 
