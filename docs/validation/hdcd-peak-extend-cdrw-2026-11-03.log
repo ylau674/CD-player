@@ -1,0 +1,77 @@
+M8.3 synthetic Peak Extend CD-RW live verification
+Redacted for publication: the serial number in output UIDs is shown as <redacted>.
+Date: 2026-11-03. The owner burned and inserted the generated test WAV.
+Live checks were run only after the owner approved read-only PCM capture and
+silent AudioCheck. CD Player was not running during those checks. A separately
+approved app listening check follows them. No eject, volume change or mute
+change was performed.
+
+The test source is a generated 10 s, 44.1 kHz, stereo Int16 WAV containing a
+near-full-scale 110 Hz signal with Peak Extend control packets every 71 frames.
+Its SHA-256 is
+a24ea3cffa332ac4742bd27e09784858c62d664ca34cc11ff2c9459af07fd804.
+
+=== Read-only PCM capture ===
+$ AudioCheck --capture-pcm 4295330750 1 0 10 <new.wav>
+Drive 4295330750: PIONEER BD-RW BDR-XS07U, media 4295342691; track 1,
+pre-emphasis false; sectors 0..<750.
+Speed: original 4233 kB/s; requested 176 kB/s; reported 4233 kB/s.
+Read 750 sectors (441000 frames); checksum d2bfbcbc2bc3dcdd; 448.8 kB/s.
+C2: 0 sectors flagged.
+PASS: original drive speed restored and verified at 4233 kB/s.
+
+The capture matched the source PCM exactly after the Pioneer drive's
+667-frame read offset; its first 667 frames were zero. FFmpeg and HDCDCheck
+decoded the captured track bit for bit identically. The decoded peak was
+1,995,068,338 / 2,147,483,648 (92.9% FS), versus 1,073,709,056 (50.0% FS)
+without Peak Extend, with no clipping.
+
+=== Silent live AudioCheck ===
+The full-disc silent check refused this 10-second, one-track CD before
+playback because it requires at least 30 seconds and two tracks. The
+single-window silent observation was used instead:
+
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 \
+    --disc 4295330750 --activate-silent --observe 0 9
+HDCD decoding: on, the app's default.
+Observing 0:00.00 (track 1, LBA 0) to 0:09.00 (track 1, LBA 675);
+output samples are zero.
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Play returned in 728 ms.
+First audio at 0:00.06 after 161 ms.
+Stop returned at 0:09.02.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: yes;
+physical output 32-bit.
+Rendered PCM checksum f6619b6109a04ec9 for frames 0..<397824
+(397824 frames, 32-bit little-endian samples).
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 9.02 s of audio in 13.38 s wall time.
+Recovery BUFFERING: 0 episodes; underrun frames 0.
+Concealed sectors: 0.
+PASS: original drive speed restored and verified at 4233 kB/s.
+
+The rendered checksum matched the independently decoded live capture over
+the exact same frame range. The callback output was silent; no volume or mute
+setting was changed. The capture WAV was deleted after analysis.
+
+=== Audible app playback ===
+After separate owner approval, the Debug app was built and launched. Before
+Play it showed PIONEER BD-RW BDR-XS07U, "44.1 kHz / 16-bit source",
+"CD DETECTED", WALKMAN, TRK 01 and 00:10. The owner had headphones on the
+Walkman with its volume at minimum. The owner clicked Play, then Pause.
+
+CD Player log (subsystem dev.cdplayer.CDPlayer):
+Requested minimum drive speed 176 kB/s; reported 4233 kB/s.
+Raw read at LBA 0 x7, C2 true, succeeded after 1633 ms
+Buffering ended at 0.06 s; 0 underrun frames so far
+Playback paused at 3.53 s: 0 underrun frames; 0 concealed sectors.
+
+Paused window: PIONEER BD-RW BDR-XS07U, "44.1 kHz / 20-bit HDCD",
+"HDCD PAUSED", WALKMAN, TRK 01, 00:03.
+Owner report: the tone was audible.
+
+This verifies the synthetic Peak Extend signal through a physical CD-RW,
+the drive read path, the silent playback engine, a 32-bit output, and an
+owner-confirmed audible app playback with the HDCD status shown. It does not
+replace a real-program HDCD disc whose musical peaks are lifted by Peak
+Extend.

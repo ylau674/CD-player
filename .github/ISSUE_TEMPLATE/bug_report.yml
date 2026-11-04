@@ -1,0 +1,70 @@
+name: Bug report
+description: Something doesn't work as described in the README.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Before you paste anything, replace serial
+        numbers, output UIDs, Bluetooth or MAC addresses, IP addresses and
+        computer or AirPlay names with `<redacted>`. Report security problems
+        privately instead; see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: CD Player version
+      description: From CD Player > About CD Player.
+      placeholder: "1.3.3"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac model
+      placeholder: "macOS 15.5, MacBook Air M2"
+    validations:
+      required: true
+  - type: input
+    id: drive
+    attributes:
+      label: Optical drive
+      description: Model and connection, for example USB or Thunderbolt dock.
+    validations:
+      required: true
+  - type: input
+    id: output
+    attributes:
+      label: Audio output
+      description: The output selected in CD Player, for example built-in speakers, a USB DAC model, HDMI, AirPlay or Bluetooth.
+    validations:
+      required: true
+  - type: input
+    id: disc
+    attributes:
+      label: Disc
+      description: Pressed CD, CD-R or CD-RW; HDCD or not, if known.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Insert the disc
+        2. Press Play
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Optional. Capture with
+        `log show --last 10m --info --predicate 'subsystem == "io.github.ylau674.CDPlayer"'`
+        and redact identifiers first.
+      render: text

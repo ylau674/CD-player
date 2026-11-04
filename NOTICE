@@ -1,0 +1,14 @@
+CD Player
+Copyright 2026 ylau674
+
+Licensed under the Apache License, Version 2.0; see LICENSE.
+
+This product includes libhdcd (https://github.com/bp0/libhdcd), an HDCD
+decoder, vendored in Packages/CDKit/Sources/HDCD under the Simplified BSD
+licence:
+
+  Copyright (c) 2016, Burt P and others
+  Copyright (c) 2010, Chris Moeller
+
+The full notices are in Packages/CDKit/Sources/HDCD/LICENSE and in the app's
+About window (App/Credits.rtf).

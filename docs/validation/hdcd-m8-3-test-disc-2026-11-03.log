@@ -1,0 +1,611 @@
+M8.3 HDCD live decoding verification on a burned test disc: terminal output assembled from the saved logs
+Redacted for publication: the serial number in output UIDs is shown as <redacted>.
+Date: 2026-11-03. Base commit: 852732f79e5619aca02b5252251d299aee3580d4 (M8.4), plus the documentation changes committed with this log. No code changed for the blocks before the addendum; the addendum, at the end, ran after the display fix it describes.
+Disc: a CD-RW burned for this test from FFmpeg's FATE sample hdcd-mix.flac (9 s of HDCD with gain adjustment; its licence was not verified, so the disc is for private testing only and nothing derived from its audio is kept here).
+  7 gapless tracks, 01:06. Tracks 1-4, 6 and 7 are the sample (9 s each). Track 5 is 3 s of digital silence followed by the sample (12 s), to test an effect that first appears after the 2-second detection hold.
+Drive 4295330750: PIONEER BD-RW BDR-XS07U, media 4295332407. Output: Sony Walkman NW-A306 in USB DAC mode, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1.
+CD Player was not running during the blocks before the addendum (checked before the first run and after the last). Every engine run sent zero-valued samples. Captures and decodes were written to a private temporary folder and deleted; only text is kept.
+Checksums are FNV-1a as PCMChecksum defines them. References were computed offline from the decode of the captures (FFmpeg's and HDCDCheck's are identical), chained across tracks in the order the engine plays them.
+Sections marked "summary" were written from the session notes because the raw output was not saved; every other block is the tool's output, saved at the time or (where stated) re-run from saved files.
+
+=== Burn (summary; the raw drutil output was not kept) ===
+Source: seven 16-bit/44.1 kHz stereo AIFF files (01.aiff to 07.aiff) made with ffmpeg from the sample. Checked when this log was assembled: files 01-05 and 07 decode to PCM with MD5 dc91004a7aaa2a5e421b6aa780a18dbd, the sample's own; file 06 is 3 s of digital silence followed by the sample (12 s).
+The blank disc the owner inserted was a CD-RW (4x), not the CD-R planned.
+A test burn (drutil burn -test, otherwise the options of the real burn below) ejected the disc although -mount was given, and left an empty reserved track on the CD-RW. The owner reinserted the disc and approved a quick erase.
+$ drutil -drive 1 erase quick   -> afterwards drutil status showed "No Media Inserted" for about 25 s, then the blank disc.
+$ drutil -drive 1 burn -audio -pregap 0 -speed 4 -noverify -mount <folder>   -> completed, no eject.
+drutil did not keep the order of the files: the 12 s file (06.aiff) became track 5, not track 6.
+
+=== Read-only check of the burned disc (summary; the raw OpticalCheck and capture output was not kept) ===
+Drive 4295330750, media 4295332407, not mounted. Audio CD of 7 tracks; playback timeline 4950 sectors, 2910600 frames (01:06). Track start LBAs 0, 675, 1350, 2025, 2700, 3600, 4275: track 5 has 900 sectors (12 s), the other six 675 (9 s).
+$ AudioCheck --capture-pcm 4295330750 <track> 0 <9 or 12> <new.wav>   (tracks 1 to 7; 396900 frames each, track 5 529200)
+Every capture: 0 C2-flagged sectors.
+Bit-exactness, checked when this log was assembled: the seven captures joined in track order (2910600 frames) equal the burned stream delayed by exactly 667 frames, and the first 667 captured frames are zero. That is the read offset usually quoted for Pioneer drives (not looked up for the XS07U). The engine and the captures read the same disc through the same drive, so the delay is common to both and does not affect the comparisons below.
+
+=== Offline decode of the captures ===
+$ ffmpeg -i tN.wav -af hdcd -c:a pcm_s32le -f s32le tN.ffmpeg.s32le
+$ tail -c +45 tN.wav > tN.s16le ; HDCDCheck tN.s16le tN.app.s32le ; cmp tN.app.s32le tN.ffmpeg.s32le   (tN.wav is the capture of track N)
+T1: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 3175200 bytes)
+T2: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 3175200 bytes)
+T3: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 3175200 bytes)
+T4: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 3175200 bytes)
+T5: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 4233600 bytes)
+T6: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 3175200 bytes)
+T7: HDCD detected: yes, peak_extend: enabled intermittently, max_gain_adj: -7.0 dB, transient_filter: detected, detectable errors: 0
+   HDCDCheck == FFmpeg (byte-identical, 3175200 bytes)
+First sample changed by decoding (decoded value != 16-bit sample << 15), and how many samples changed:
+T1: 396900 frames; first changed frame 64210 (1.456 s); changed samples 31147
+T2: 396900 frames; first changed frame 64210 (1.456 s); changed samples 31147
+T3: 396900 frames; first changed frame 64210 (1.456 s); changed samples 31147
+T4: 396900 frames; first changed frame 64210 (1.456 s); changed samples 31147
+T5: 529200 frames; first changed frame 196510 (4.456 s); changed samples 31147
+T6: 396900 frames; first changed frame 64210 (1.456 s); changed samples 31147
+T7: 396900 frames; first changed frame 64210 (1.456 s); changed samples 31147
+Tracks 1-4, 6 and 7 first change inside the engine's 2-second hold; track 5 first changes after it (the late-discovery case).
+What decoding changed (every track changes 31147 samples); track 1: 31147 of 793800 samples (3.92%); the other 762653 decoded to exactly sample x 32768, the level of a decode with no effect. No decoded sample exceeded the 16-bit range (largest |value| is 32767 x 32768).
+  Samples at or above the Peak Extend threshold (|x| >= 0x5981): 9115; 9108 of them decoded to exactly sample x 32768 and 7 changed, by at most 0.8% (for example 25206 to 25404.27 in 16-bit units). Gain adjustment is exercised heavily by this disc; Peak Extend is flagged in its packets but barely changes any sample.
+  31140 of the 31147 changed values have a bit set below 2^11 (15417 also have bit 0 set), so they are libhdcd's full-precision gain results, not values on a 20-bit grid. The render callback converts the 32-bit ring to Float32, which holds 24 significant bits, so a value with finer detail than that is rounded there.
+
+=== Silent pipeline check, HDCD decoding off ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295330750 --activate-silent --hdcd-off
+HDCD decoding: off (--hdcd-off); HDCD is still detected and every sample passes through.
+Drive: 4295330750, media: 4295332407, 7 audio tracks; original reported speed 4233 kB/s.
+Device TOC matched the registry TOC before playback.
+Pacing: steady
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; start, zero output samples.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: no; physical output 32-bit; first audio after 2199 ms (polled every 50 ms).
+PASS: start, 266240 frames, checksum 997bb06968a29d97; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; seek, zero output samples.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: no; physical output 32-bit; first audio after 787 ms (polled every 50 ms).
+PASS: seek, 222720 frames, checksum 6f594fa2de3c0073; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; track boundary, zero output samples.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: no; physical output 32-bit; first audio after 791 ms (polled every 50 ms).
+PASS: track boundary, 177152 frames, checksum e38d30122371bd1c; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; pause, zero output samples.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: no; physical output 32-bit; first audio after 787 ms (polled every 50 ms).
+PASS: pause, 220672 frames, checksum 8ff2e1eb7d5301b9; restored 384000.0 Hz.
+PASS: pause held at frame 1543672 for 0.5 s with the output idle.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; resume, zero output samples.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: no; physical output 32-bit; first audio after 787 ms (polled every 50 ms).
+PASS: resume, 221696 frames, checksum 5fde8c83d531f37a; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; end of disc, zero output samples.
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: no; physical output 32-bit; first audio after 790 ms (polled every 50 ms).
+PASS: end of disc, 220500 frames, checksum 8637945a66f58ef2; restored 384000.0 Hz.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+PASS: steady pacing raw reads (including checksum references): 1968 reads, 45188976 bytes in 23.171 s; 1950.2 kB/s.
+PASS: silent callback consumed 30.14 seconds of real disc PCM; output samples were zero.
+No system volume or mute setting was changed.
+PASS: original drive speed restored and verified at 4233 kB/s.
+The default run (decoding on) was not repeated: a decoded segment cannot match the disc's raw reads, so that run fails by design on this disc; see the observation windows below.
+
+=== Observation window A, decoding on, single-pass policy (the app's default) ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295330750 --activate-silent --observe 0 9
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295330750, media: 4295332407; original reported speed 4233 kB/s.
+Observing 0:00.00 (track 1, LBA 0) to 0:09.00 (track 2, LBA 675) with steady pacing; output samples are zero.
+Retry policy: single pass, the app's default (each block read once; C2-flagged samples interpolated).
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+[+0.87 s] First audio at 0:00.03 (track 1, LBA 2) after 55 ms
+[+7.02 s] concealed sectors in this run: 13 (playing 0:06.19 (track 1, LBA 464))
+[+7.07 s] concealed sectors in this run: 22 (playing 0:06.23 (track 1, LBA 467))
+[+9.93 s] Stop returned in 49 ms at 0:09.06 (track 2, LBA 679)
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: yes; physical output 32-bit.
+No rendered PCM checksum: the final run was concealed, underran or played nothing.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 0:00.00 (track 1, LBA 0) to 0:09.06 (track 2, LBA 679) (9.06 s of audio) in 9.95 s wall time; window completed.
+Recovery BUFFERING: 0 episodes, 0.00 s total, longest 0.00 s; underrun frames 0 (0.00 s).
+Concealed sectors (summed per playback run): 22; unverified: no; C2-flagged sectors cleared by retries: 0.
+Control latency: pause during BUFFERING not measured, resume not measured, final stop 49 ms.
+Raw reads: 428 reads, 8841168 audio bytes, 8.13 s inside reads; 1087.2 kB/s (1x is 176.4 kB/s; reads of 0.5 s or more are logged by CDKit).
+PASS: original drive speed restored and verified at 4233 kB/s.
+From the unified log (subsystem dev.cdplayer.CDPlayer, category DiscRead): 22 "Concealed audio at CD LBA" lines, LBA 2180 to 2201 contiguous, all logged by this run at about the +7 s mark. No other run between 18:00 and 19:05 logged one.
+  These sectors lie about 2 s into track 4, about 23 s ahead of the play position (LBA 464 at 6.19 s), so the audio of the window itself was unaffected. The tool still withholds the checksum when any sector of the final run was concealed.
+  The same sectors were not flagged in the capture of track 4 (LBA 2025-2699; 0 C2-flagged sectors). The cause was not found; a marginal spot on the CD-RW or a transient read condition is possible. The run with the retry policy below found nothing to retry.
+
+=== Observation window A, decoding on, retry policy ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295330750 --activate-silent --observe 0 9 --retry
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295330750, media: 4295332407; original reported speed 4233 kB/s.
+Observing 0:00.00 (track 1, LBA 0) to 0:09.00 (track 2, LBA 675) with steady pacing; output samples are zero.
+Retry policy: retry (C2-flagged blocks re-read with spare buffer time; none while BUFFERING).
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+[+2.21 s] First audio at 0:00.02 (track 1, LBA 1) after 1385 ms
+[+11.27 s] Stop returned in 51 ms at 0:09.03 (track 2, LBA 677)
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: yes; physical output 32-bit.
+Rendered PCM checksum 08378f171a72e72e for frames 0..<398336 (398336 frames, 32-bit little-endian samples) of the final run.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 0:00.00 (track 1, LBA 0) to 0:09.03 (track 2, LBA 677) (9.03 s of audio) in 11.28 s wall time; window completed.
+Recovery BUFFERING: 0 episodes, 0.00 s total, longest 0.00 s; underrun frames 0 (0.00 s).
+Concealed sectors (summed per playback run): 0; unverified: no; C2-flagged sectors cleared by retries: 0.
+Control latency: pause during BUFFERING not measured, resume not measured, final stop 51 ms.
+Raw reads: 420 reads, 8829408 audio bytes, 9.42 s inside reads; 937.4 kB/s (1x is 176.4 kB/s; reads of 0.5 s or more are logged by CDKit).
+PASS: original drive speed restored and verified at 4233 kB/s.
+Reference (the window ends 1436 frames into track 2, so the decoder resets at the track boundary):
+engine:                   08378f171a72e72e (frames 0..<398336)
+reset at track boundary:  08378f171a72e72e   (decode of track 1, then the first 1436 frames of track 2 decoded fresh)
+one continuous decode:    08378f171a72e72e
+undecoded (int16<<16):    cd384eba3afee62e
+MATCH: the engine's decoded output equals the external decode bit for bit, and differs from undecoded playback.
+
+=== Observation window B, decoding on, single-pass policy: track 5 (late HDCD) to the end of the disc ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295330750 --activate-silent --observe 36 30
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295330750, media: 4295332407; original reported speed 4233 kB/s.
+Observing 0:36.00 (track 5, LBA 2700) to 1:06.00 with steady pacing; output samples are zero.
+Retry policy: single pass, the app's default (each block read once; C2-flagged samples interpolated).
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+[+2.36 s] First audio at 0:36.03 (track 5, LBA 2702) after 1542 ms
+[+32.40 s] Stop returned in 50 ms at 1:06.00
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: yes; physical output 32-bit.
+Rendered PCM checksum 7a43ff1d860f5392 for frames 1587600..<2910600 (1323000 frames, 32-bit little-endian samples) of the final run.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 0:36.00 (track 5, LBA 2700) to 1:06.00 (30.00 s of audio) in 32.42 s wall time; window completed.
+Recovery BUFFERING: 0 episodes, 0.00 s total, longest 0.00 s; underrun frames 0 (0.00 s).
+Concealed sectors (summed per playback run): 0; unverified: no; C2-flagged sectors cleared by retries: 0.
+Control latency: pause during BUFFERING not measured, resume not measured, final stop 50 ms.
+Raw reads: 324 reads, 6801984 audio bytes, 8.25 s inside reads; 824.1 kB/s (1x is 176.4 kB/s; reads of 0.5 s or more are logged by CDKit).
+PASS: original drive speed restored and verified at 4233 kB/s.
+Reference (track 5 = 529200 frames, tracks 6 and 7 = 396900 frames each):
+engine:                                   7a43ff1d860f5392 (frames 1587600..<2910600)
+T5 undecoded, T6+T7 decoded (expected):   7a43ff1d860f5392
+all three decoded:                        367dae1579c30992
+all three undecoded:                      cde0d26017b6227a
+MATCH: track 5 played undecoded (its first effect, at 4.456 s, came after the 2-second hold), decoding started at the track 6 boundary, and tracks 6 and 7 equal a fresh decode from each track's start.
+
+=== Observation window C, decoding on, single-pass policy: seek 2.0 s into track 3 ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295330750 --activate-silent --observe 20 6
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295330750, media: 4295332407; original reported speed 4233 kB/s.
+Observing 0:20.00 (track 3, LBA 1500) to 0:26.00 (track 3, LBA 1950) with steady pacing; output samples are zero.
+Retry policy: single pass, the app's default (each block read once; C2-flagged samples interpolated).
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+[+2.23 s] First audio at 0:20.05 (track 3, LBA 1503) after 1302 ms
+[+8.23 s] Stop returned in 36 ms at 0:26.00 (track 3, LBA 1950)
+HDCD: HDCD packets with Peak Extend or a gain adjustment; decoded: yes; physical output 32-bit.
+Rendered PCM checksum 9281f049b96aaa49 for frames 882000..<1146704 (264704 frames, 32-bit little-endian samples) of the final run.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 0:20.00 (track 3, LBA 1500) to 0:26.00 (track 3, LBA 1950) (6.00 s of audio) in 8.25 s wall time; window completed.
+Recovery BUFFERING: 0 episodes, 0.00 s total, longest 0.00 s; underrun frames 0 (0.00 s).
+Concealed sectors (summed per playback run): 0; unverified: no; C2-flagged sectors cleared by retries: 0.
+Control latency: pause during BUFFERING not measured, resume not measured, final stop 36 ms.
+Raw reads: 312 reads, 6536208 audio bytes, 7.88 s inside reads; 829.4 kB/s (1x is 176.4 kB/s; reads of 0.5 s or more are logged by CDKit).
+PASS: original drive speed restored and verified at 4233 kB/s.
+Reference (a decode of the capture starting 88200 frames into track 3; FFmpeg and HDCDCheck agree on it byte for byte; FFmpeg reports "HDCD detected: yes, peak_extend: never enabled, max_gain_adj: -6.0 dB" for the slice; its first change is at frame 4773, 0.108 s, inside the hold):
+engine:                                      9281f049b96aaa49 (frames 882000..<1146704)
+fresh decode from the window start:          9281f049b96aaa49
+continuation of the whole-track decode:      9281f049b96aaa49
+undecoded (int16<<16):                       9d5aefaba708f766
+MATCH: the engine's decoded output equals the external decode bit for bit.
+
+=== Output state before and after the engine runs ===
+$ AudioCheck --capture-output-state walkman-before.json   (before the first run)
+$ AudioCheck --capture-output-state walkman-after.json    (after the last run)
+Both comparisons below are offline, on the two saved snapshots. They were re-run when this log was assembled because the original output was not kept.
+$ AudioCheck --verify-output-state before walkman-before.json --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+PASS: before configuration checks for UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1.
+Offline snapshot comparison only; this does not prove PCM delivery, channel placement or crash recovery.
+$ AudioCheck --verify-output-state after walkman-before.json walkman-after.json --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+PASS: after configuration checks for UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1.
+Offline snapshot comparison only; this does not prove PCM delivery, channel placement or crash recovery.
+$ diff walkman-before.json walkman-after.json   -> only captureID and capturedAtUnixTime differ. The snapshot covers all three audio devices (WALKMAN and the MacBook's microphone and speakers): nominal rate, controls such as volume and mute, ownership, running state and the default devices. None changed.
+No check tool, drutil or CD Player process was left running; the disc stayed in the drive, unmounted.
+
+=== Addendum: the owner's listening check, the display fix and the ordinary-CD control (2026-11-03, evening) ===
+The blocks above are unchanged. This addendum records the owner's listening check in the Release app, the display bug it exposed, the fix with its test and re-test, and an ordinary-CD control. The first listening ran on a Release app built from commit 39127c6, which has the code of the M8.4 commit 852732f. The fix, its test and everything after it were done in the working tree on top of 39127c6, uncommitted when this addendum was written. Same drive (4295330750), test disc and Walkman as above. The Walkman's volume was at its minimum for the first listening (the owner confirmed it before the app was launched) and, from the session notes, for the re-test.
+Lines marked "owner-reported" give the owner's answers to the questions I asked in the session; where the wording matters it is quoted. Lines marked "summary" come from the session notes, not from saved output. The app's log lines were streamed live with the commands shown and trimmed with the sed expression below: the date, process, thread and subsystem are removed, leaving time, level and category. Level Df is the default level, I is info, and E is how the app's warning-level lines appear (slow raw reads, and the line each open logs with the requested and the reported drive speed, which is not selected below). The log holds no HDCD state and no screen text, so what the screen showed and what was heard rest on the owner's reports.
+CD Player was running for the listening, the re-test and the control; it was not running during the AudioCheck run (see the control).
+$ TRIM='s/^[0-9-]+ ([0-9:.]+) ([A-Za-z]+) +CDPlayer\[[0-9]+:[0-9a-f]+\] \[dev\.cdplayer\.CDPlayer:([A-Za-z]+)\] /\1 \2 \3 /'
+
+=== First listening, before the display fix (CD Player PID 95854, 19:19 to 19:37) ===
+Owner-reported, summary of the answers recorded in the session notes. Stage 1, track 1 with Decode HDCD on: status line "CD DETECTED", then "HDCD PLAYING"; source text "44.1 kHz / 20-bit HDCD"; clean sound. Stage 2, Decode HDCD off on track 2 and on again on track 3: source text "44.1 kHz / 16-bit HDCD", then "44.1 kHz / 20-bit HDCD"; the decoded audio clearly quieter; clean sound. Stage 3, Stop, select track 5, Play, decoding on: the level dropped at the track 6 boundary.
+Owner-reported, verbatim, the note on stage 3: "at track 5 start, there was a click sound, 16-bit HDCD, after 2 seconds, 20-bit"
+My reading, from the code and not an owner report: the note points to a display bug rather than an audio fault. The engine's decoded flag was the producer's, and the producer reads ahead of playback into a 30 s ring, so on a run from track 5 it crossed the track 6 boundary (12 s into the track) seconds after Play and set the flag well before the decoded audio played. The audio side is covered by observation window B above: track 5 played undecoded and decoding began at the track 6 boundary. The note gives the text at the start as 16-bit HDCD and, 2 seconds later, 20-bit; what the text showed during the 2-second detection hold at the start of the run, in which the model keeps the previous run's state, was not pinned down.
+$ log stream --predicate 'subsystem == "dev.cdplayer.CDPlayer"' --level info --style compact > /tmp/cdplayer-listen-unified.log 2>&1   (started before the app)
+The file has 7892 lines: 2 of header and 7890 log lines, of which 158 are from CD Player (PID 95854) and 7732 from four swiftpm-testing-helper processes (test runs of the same session, which log to the same subsystem). Only CD Player's lines are used.
+$ grep -E 'CDPlayer\[95854:' /tmp/cdplayer-listen-unified.log | grep -o 'Opened disc [0-9]*' | sort | uniq -c
+  13 Opened disc 4295332407
+$ grep -E 'CDPlayer\[95854:' /tmp/cdplayer-listen-unified.log | grep -E 'Playback (stopped|paused|ended) at|Raw read at LBA' | sed -E "$TRIM"
+19:19:30.174 E Disc Raw read at LBA 0 x7, C2 true, succeeded after 1633 ms
+19:20:36.720 Df Player Playback ended at 66.00 s: 0 underrun frames; 0 concealed sectors.
+19:22:15.101 E Disc Raw read at LBA 0 x7, C2 true, succeeded after 1590 ms
+19:22:48.398 Df Player Playback stopped at 15.27 s: 0 underrun frames; 0 concealed sectors.
+19:23:07.811 Df Player Playback stopped at 12.82 s: 0 underrun frames; 0 concealed sectors.
+19:23:40.163 Df Player Playback paused at 17.63 s: 0 underrun frames; 0 concealed sectors.
+19:24:18.743 Df Player Playback paused at 53.84 s: 0 underrun frames; 0 concealed sectors.
+19:25:08.359 E Disc Raw read at LBA 0 x7, C2 true, succeeded after 1543 ms
+19:25:30.192 Df Player Playback paused at 23.64 s: 0 underrun frames; 0 concealed sectors.
+19:25:42.527 Df Player Playback paused at 33.28 s: 0 underrun frames; 0 concealed sectors.
+19:28:08.481 E Disc Raw read at LBA 2700 x7, C2 true, succeeded after 1544 ms
+19:28:19.773 Df Player Playback paused at 46.81 s: 0 underrun frames; 0 concealed sectors.
+19:29:33.260 E Disc Raw read at LBA 2700 x7, C2 true, succeeded after 1550 ms
+19:29:57.623 Df Player Playback stopped at 59.87 s: 0 underrun frames; 0 concealed sectors.
+19:30:27.829 Df Player Playback paused at 37.58 s: 0 underrun frames; 0 concealed sectors.
+19:30:44.142 Df Player Playback stopped at 42.16 s: 0 underrun frames; 0 concealed sectors.
+19:30:56.973 Df Player Playback stopped at 45.00 s: 0 underrun frames; 0 concealed sectors.
+19:31:08.204 Df Player Playback stopped at 42.07 s: 0 underrun frames; 0 concealed sectors.
+19:31:38.032 Df Player Playback paused at 38.98 s: 0 underrun frames; 0 concealed sectors.
+19:32:17.697 Df Player Playback stopped at 52.66 s: 0 underrun frames; 0 concealed sectors.
+19:33:16.542 Df Player Playback stopped at 61.91 s: 0 underrun frames; 0 concealed sectors.
+19:36:44.104 E Disc Raw read at LBA 0 x7, C2 true, succeeded after 1534 ms
+19:37:00.129 Df Player Playback stopped at 15.52 s: 0 underrun frames; 0 concealed sectors.
+Reading the lines: 17 playback summaries (9 stopped, 7 paused, 1 ended), each with 0 underrun frames and 0 concealed sectors; 6 slow raw reads of 1.53 to 1.63 s (four at LBA 0, two at LBA 2700), each of which succeeded. The disc was opened 13 times, always as media 4295332407. In the re-test the media ID changed after each eject (see there), so the unchanged ID here fits the disc having stayed in the drive.
+
+=== Offline tests of the display fix ===
+The new test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer was written before the fix (session notes), failed without it, and was also checked by removing the fix's reset in cd_playback_prepare. The raw output of those first runs was not kept, so the three checks were re-run when this addendum was written, in a throwaway copy of Packages/CDKit under /tmp (the working tree was not touched). Only the test's own output is shown; the build lines are left out.
+$ rsync -a --exclude='.build' --exclude='.swiftpm' Packages/CDKit/ /tmp/cdplayer-red/CDKit/
+$ git show HEAD:Packages/CDKit/Sources/CDAudioCore/AudioPlayback.c > /tmp/cdplayer-red/CDKit/Sources/CDAudioCore/AudioPlayback.c   (the engine of 39127c6, without the fix)
+$ swift test --package-path /tmp/cdplayer-red/CDKit --filter decodedStateFollowsThePlayingPositionNotTheReadAheadProducer
+◇ Test run started.
+↳ Testing Library Version: 2403
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() started.
+✘ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() recorded an issue at HDCDPlaybackTests.swift:166:5: Expectation failed: readAhead.currentFrame == 0 && !readAhead.hdcdDecoded
+↳ readAhead.currentFrame == 0 && !readAhead.hdcdDecoded → false
+↳   readAhead.currentFrame == 0 → true
+↳   !readAhead.hdcdDecoded → false
+✘ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() recorded an issue at HDCDPlaybackTests.swift:172:5: Expectation failed: beforeLastFrame.currentFrame == UInt64(boundary - 1) && !beforeLastFrame.hdcdDecoded
+↳ beforeLastFrame.currentFrame == UInt64(boundary - 1) && !beforeLastFrame.hdcdDecoded → false
+↳   beforeLastFrame.currentFrame == UInt64(boundary - 1) → true
+↳   !beforeLastFrame.hdcdDecoded → false
+✘ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() failed after 0.021 seconds with 2 issues.
+✘ Test run with 1 test in 0 suites failed after 0.021 seconds with 2 issues.
+Note: Some test targets reported failures:
+  - CDKitTests (Swift Testing)
+Without the fix the producer's flag is already set at frame 0 and one frame before the track boundary: exactly the two display expectations fail, and the position checks around them are true.
+$ cp Packages/CDKit/Sources/CDAudioCore/AudioPlayback.c /tmp/cdplayer-red/CDKit/Sources/CDAudioCore/AudioPlayback.c   (the engine with the fix)
+$ swift test --package-path /tmp/cdplayer-red/CDKit --filter decodedStateFollowsThePlayingPositionNotTheReadAheadProducer
+◇ Test run started.
+↳ Testing Library Version: 2403
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() started.
+✔ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() passed after 0.021 seconds.
+✔ Test run with 1 test in 0 suites passed after 0.021 seconds.
+Mutation check: the copy's engine with one line of the fix removed, the store of the decode frame in cd_playback_prepare.
+$ diff Packages/CDKit/Sources/CDAudioCore/AudioPlayback.c /tmp/cdplayer-red/CDKit/Sources/CDAudioCore/AudioPlayback.c
+2385d2384
+<         atomic_store_explicit(&p->hdcdDecodeFrame, startFrame, memory_order_release);
+$ swift test --package-path /tmp/cdplayer-red/CDKit --filter decodedStateFollowsThePlayingPositionNotTheReadAheadProducer
+◇ Test run started.
+↳ Testing Library Version: 2403
+↳ Target Platform: arm64e-apple-macos14.0
+◇ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() started.
+✘ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() recorded an issue at HDCDPlaybackTests.swift:186:5: Expectation failed: restarted.currentFrame == 0 && restarted.hdcdDecoded
+↳ restarted.currentFrame == 0 && restarted.hdcdDecoded → false
+↳   restarted.currentFrame == 0 → true
+↳   restarted.hdcdDecoded → false
+✘ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() failed after 0.022 seconds with 1 issue.
+✘ Test run with 1 test in 0 suites failed after 0.022 seconds with 1 issue.
+Note: Some test targets reported failures:
+  - CDKitTests (Swift Testing)
+Without that line the run restarted after a stop and a new prepare() does not report decoding from frame 0: the test's last check fails, and only that one. The copy was then deleted.
+The full suites were run again on the final working tree, one after another (finished 20:51, 20:52 and 20:53):
+$ swift test --package-path Packages/CDKit
+✔ Test run with 441 tests in 7 suites passed after 16.461 seconds.
+✔ Test run with 29 tests in 2 suites passed after 0.018 seconds.
+$ swift test --package-path Packages/CDKit --sanitize=address
+✔ Test run with 441 tests in 7 suites passed after 17.409 seconds.
+✔ Test run with 29 tests in 2 suites passed after 0.035 seconds.
+$ swift test --package-path Packages/CDKit --sanitize=thread
+✔ Test run with 441 tests in 7 suites passed after 25.477 seconds.
+✔ Test run with 29 tests in 2 suites passed after 0.016 seconds.
+The new test in each of the three logs (plain, AddressSanitizer, ThreadSanitizer):
+✔ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() passed after 0.519 seconds.
+✔ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() passed after 1.058 seconds.
+✔ Test decodedStateFollowsThePlayingPositionNotTheReadAheadProducer() passed after 2.827 seconds.
+The same marker grep over the three final logs (exit status 1 because nothing matched):
+$ grep -c -E 'ThreadSanitizer|AddressSanitizer|WARNING: |error:|✘' /tmp/cdplayer-final-plain.log /tmp/cdplayer-final-asan.log /tmp/cdplayer-final-tsan.log
+/tmp/cdplayer-final-plain.log:0
+/tmp/cdplayer-final-asan.log:0
+/tmp/cdplayer-final-tsan.log:0
+
+=== Re-test with the fix (CD Player PID 14932, 20:08 to 20:18; a Release app built from the working tree) ===
+Owner-reported, summary of the answers recorded in the session notes. Play 1, track 1: status line "HDCD DETECTED", source text "44.1 kHz / 20-bit HDCD", no click at the start.
+Play 2, track 5, decoding on. The question was when the source text first read 20-bit HDCD. Its options were "At the level drop when track 6 starts (the fix works)", "A few seconds after the first sound, during track 5 (as before the fix)", "It read 20-bit from the start and stayed" and "Something else (describe in the notes box)". Owner-reported: "At the level drop when track 6 starts (the fix works)". The note, verbatim: "Once the source text changed to 44.1kHz / 20-bit HDCD, the audio was quiet (as per the track recorded), then the audio started and no click sound after playing track 6"
+Play 3, track 3, asked about a click at the very start, about half a second of silence before the music, and the text. Owner-reported, verbatim: "yes, yes, 44.1 kHz / 20-bit HDCD"
+Not reported: the texts shown before the level drop on track 5, and a click at the start of track 5. The log shows 12 playback summaries on the test disc, more than the three Plays asked for, and cannot tell which run each answer describes.
+$ log stream --predicate 'subsystem == "dev.cdplayer.CDPlayer" AND process == "CDPlayer"' --level info --style compact > /tmp/cdplayer-listen2-unified.log 2>&1   (started before the new app; the file has 118 lines: 2 of header and 116 log lines, all from CD Player PID 14932, covering the re-test and the control below)
+$ grep -E 'CDPlayer\[14932:' /tmp/cdplayer-listen2-unified.log | grep -E 'Opened disc|Playback (stopped|paused|ended) at|Raw read at LBA' | sed -E "$TRIM" | awk '$1 < "20:20:00"'
+20:08:07.563 I Disc Opened disc 4295332407 in drive 4295330750 for reading
+20:08:09.248 E Disc Raw read at LBA 0 x7, C2 true, succeeded after 1590 ms
+20:08:17.911 Df Player Playback stopped at 8.16 s: 0 underrun frames; 0 concealed sectors.
+20:08:23.289 I Disc Opened disc 4295332407 in drive 4295330750 for reading
+20:08:37.862 Df Player Playback stopped at 13.66 s: 0 underrun frames; 0 concealed sectors.
+20:09:06.736 I Disc Opened disc 4295332407 in drive 4295330750 for reading
+20:09:16.745 Df Player Playback stopped at 9.11 s: 0 underrun frames; 0 concealed sectors.
+20:10:40.082 I Disc Opened disc 4295336289 in drive 4295330750 for reading
+20:10:53.848 Df Player Playback paused at 48.98 s: 0 underrun frames; 0 concealed sectors.
+20:11:09.497 I Disc Opened disc 4295336289 in drive 4295330750 for reading
+20:11:23.530 Df Player Playback paused at 49.25 s: 0 underrun frames; 0 concealed sectors.
+20:12:15.570 E Disc Raw read at LBA 3693 x8, C2 true, succeeded after 1554 ms
+20:12:21.299 Df Player Playback stopped at 54.48 s: 0 underrun frames; 0 concealed sectors.
+20:12:55.296 I Disc Opened disc 4295336395 in drive 4295330750 for reading
+20:13:10.048 Df Player Playback paused at 44.41 s: 0 underrun frames; 0 concealed sectors.
+20:14:06.865 E Disc Raw read at LBA 3330 x8, C2 true, succeeded after 1606 ms
+20:14:17.477 Df Player Playback stopped at 54.53 s: 0 underrun frames; 0 concealed sectors.
+20:14:41.106 I Disc Opened disc 4295336395 in drive 4295330750 for reading
+20:14:58.621 Df Player Playback paused at 52.61 s: 0 underrun frames; 0 concealed sectors.
+20:16:17.719 E Disc Raw read at LBA 2700 x7, C2 true, succeeded after 1730 ms
+20:16:36.220 Df Player Playback paused at 54.02 s: 0 underrun frames; 0 concealed sectors.
+20:17:31.875 E Disc Raw read at LBA 1350 x7, C2 true, succeeded after 1750 ms
+20:17:34.821 Df Player Playback paused at 20.45 s: 0 underrun frames; 0 concealed sectors.
+20:18:46.949 E Disc Raw read at LBA 1533 x8, C2 true, succeeded after 1498 ms
+20:18:53.493 Df Player Playback stopped at 26.43 s: 0 underrun frames; 0 concealed sectors.
+Reading the lines: 7 opens under three media IDs, 12 playback summaries (6 stopped, 6 paused), each with 0 underrun frames and 0 concealed sectors, and 6 slow raw reads of 1.50 to 1.75 s, each of which succeeded. The media ID changed twice, from 4295332407 to 4295336289 and then to 4295336395; the system log below shows an eject before each change.
+$ grep -E 'CDPlayer\[14932:' /tmp/cdplayer-listen2-unified.log | grep 'Buffering ended at 36.12 s' | sed -E "$TRIM"
+20:10:40.938 Df Player Buffering ended at 36.12 s; 0 underrun frames so far
+20:11:10.351 Df Player Buffering ended at 36.12 s; 0 underrun frames so far
+20:14:42.076 Df Player Buffering ended at 36.12 s; 0 underrun frames so far
+Track 5 of the test disc starts at LBA 2700, which is 36.00 s. Each of these three lines comes within 1 s after an open (0.86, 0.85 and 0.97 s): two on media 4295336289 (opened 20:10:40 and 20:11:09) and one on media 4295336395 (opened 20:14:41).
+What ties the two new media IDs to the test disc is limited: a read-only OpticalCheck of 4295336395 showed the test disc's table of contents (summary; the raw OpticalCheck output was not kept), and the runs above began at the position where track 5 of the test disc starts. Nothing more was recorded for 4295336289. 4295332407 is the ID the test disc had in all the blocks above.
+
+=== System log: the disc left the drive and came back during the re-test ===
+Re-run when this addendum was written, because the original query output was not kept:
+$ log show --start "2026-11-03 20:00:00" --end "2026-11-03 20:35:00" --info --style compact --predicate '(process == "diskarbitrationd") AND (eventMessage CONTAINS "ejected disk" OR eventMessage CONTAINS "queued solicitation" OR eventMessage CONTAINS "kind = disk appeared" OR eventMessage CONTAINS "kind = disk disappeared")' > /tmp/cdplayer-diskarb.log 2>&1
+The file has 2453 lines from 20:05:12 to 20:32:50: a header, 2430 "dispatched callback", 10 "registered callback", and the 12 queued-solicitation or ejected-disk lines below (process, thread and subsystem removed).
+$ grep -E 'queued solicitation|ejected disk' /tmp/cdplayer-diskarb.log | sed -E 's/^[0-9-]+ ([0-9:.]+) ([A-Za-z]+) +diskarbitrationd\[[0-9]+:[0-9a-f]+\] \[com\.apple\.DiskArbitration\.diskarbitrationd:default\] +/\1 \2 /'
+20:10:01.977 Df <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:10:01.985 Df <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+20:10:02.002 Df ejected disk, id = <private>, ongoing.
+20:10:04.134 Df ejected disk, id = <private>, success.
+20:12:21.807 Df <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:12:21.817 Df <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+20:12:21.824 Df ejected disk, id = <private>, ongoing.
+20:12:24.525 Df ejected disk, id = <private>, success.
+20:26:56.450 Df <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:26:56.458 Df <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+20:26:56.464 Df ejected disk, id = <private>, ongoing.
+20:26:58.621 Df ejected disk, id = <private>, success.
+Callbacks dispatched per second and kind, for the seconds with 40 or more (the tab in each output line is shown as a space):
+$ grep 'dispatched callback' /tmp/cdplayer-diskarb.log | grep -o -E '^[0-9-]+ [0-9:]+|kind = disk (appeared|disappeared)' | paste - - | sort | uniq -c | awk '$1 >= 40'
+ 382 2026-11-03 20:10:02 kind = disk disappeared
+  48 2026-11-03 20:10:23 kind = disk appeared
+ 294 2026-11-03 20:10:24 kind = disk appeared
+ 382 2026-11-03 20:12:21 kind = disk disappeared
+ 342 2026-11-03 20:12:43 kind = disk appeared
+ 374 2026-11-03 20:26:56 kind = disk disappeared
+ 457 2026-11-03 20:28:14 kind = disk appeared
+Reading the output: each "disappeared" burst falls within a second of an eject sequence starting (20:10:02, 20:12:21, 20:26:56). The "appeared" bursts are the disc returning (20:10:23 and 20:10:24, then 20:12:43) and, at 20:28:14, the control disc below. The five other seconds with dispatched callbacks (29 or 32 each, all "appeared") each coincide with a client registering callbacks, as the 10 "registered callback" lines show (20:05:12, 20:20:19, 20:24:51, 20:31:43 and 20:32:50). diskarbitrationd does not name the requester; "Follow-up: what requested the ejects" below ties each eject to a click in CD Player.
+
+=== The click at some track starts: what a run begins with ===
+Owner-reported (above and in the control below): a click at the start of track 5 in the first listening and at the start of track 3 in the re-test; none at the start of track 1, and none at the start of track 2 of the ordinary CD.
+The drive's read offset is 667 frames (the bit-exactness paragraph of "Read-only check of the burned disc" above: the captures equal the burned stream delayed by exactly 667 frames, and the first 667 captured frames are zero), and the app plays what the drive returns. So a run that starts at the first sector of track 2 to 7 begins with the last 667 frames (15.1 ms) of the track before it, while on track 1 the first 667 frames are zeros. Every track of this disc ends with the end of the sample, which is measured here when this addendum was written (the sample is the data of tracks 1-4, 6 and 7, and of track 5 after its 3 s of silence):
+$ cd /tmp/cdplayer-m8-click   (a private folder with the sample as raw 16-bit stereo PCM and the FATE flac; deleted afterwards)
+$ md5 sample.s16le
+MD5 (sample.s16le) = dc91004a7aaa2a5e421b6aa780a18dbd
+$ ffmpeg -v error -i hdcd-mix.flac -f s16le -acodec pcm_s16le -ac 2 -ar 44100 - | md5
+dc91004a7aaa2a5e421b6aa780a18dbd
+$ cat /tmp/cdplayer-measure.py
+import array
+import sys
+
+samples = array.array('h')
+with open('sample.s16le', 'rb') as f:
+    samples.frombytes(f.read())
+if sys.byteorder == 'big':
+    samples.byteswap()
+left, right = samples[0::2], samples[1::2]
+frames = len(left)
+RATE = 44100
+OFFSET = 667
+print('frames', frames, 'seconds', frames / RATE)
+
+lead = 0
+while lead < frames and left[lead] == 0 and right[lead] == 0:
+    lead += 1
+print('leading all-zero frames: %d = %.3f s' % (lead, lead / RATE))
+
+tail = slice(frames - OFFSET, frames)
+peak = max(max(abs(x) for x in left[tail]), max(abs(x) for x in right[tail]))
+print('peak abs over last %d frames: %d = %.1f %% of full scale (32768)' % (OFFSET, peak, 100 * peak / 32768))
+print('first frame of tail:', left[frames - OFFSET], right[frames - OFFSET],
+      ' last frame:', left[-1], right[-1])
+print('overall peak:', max(max(abs(x) for x in left), max(abs(x) for x in right)))
+
+trail = 0
+while trail < frames and left[frames - 1 - trail] == 0 and right[frames - 1 - trail] == 0:
+    trail += 1
+print('trailing all-zero frames:', trail)
+print('silence before the music on track 5 (3 s more): %.3f s' % ((3 * RATE + lead) / RATE))
+$ python3 /tmp/cdplayer-measure.py
+frames 396900 seconds 9.0
+leading all-zero frames: 20137 = 0.457 s
+peak abs over last 667 frames: 25438 = 77.6 % of full scale (32768)
+first frame of tail: 6953 5761  last frame: -5100 -1571
+overall peak: 32767
+trailing all-zero frames: 0
+silence before the music on track 5 (3 s more): 3.457 s
+So a run from a track start plays a 15.1 ms burst that begins and ends mid-waveform (the first frame of the tail is 6953 and 5761, the last -5100 and -1571, with silence on either side) and peaks at 77.6% of full scale, then 0.457 s of silence (3.457 s on track 5), then the music. A run that plays through a track boundary has no such burst: the stream is contiguous there (the captures joined in track order equal the delayed stream). The owner's reports fit this. No run without the burst was tried, so it is not proven to be what was heard.
+
+=== Ordinary-CD control: the app side owner-reported, then AudioCheck with the app quit ===
+The test disc was ejected at 20:26:56 (system log above) and an ordinary commercial audio CD went in (the owner's copy: not named here, and not known to be HDCD). It appeared at 20:28:14 (system log above). Same CD Player process (PID 14932).
+Owner-reported, as chosen from the options of the form (the other options in brackets):
+  After the insert, the status line read: "CD DETECTED" (the others: "HDCD DETECTED", "Something else (type it)")
+  While playing: "CD PLAYING, 44.1 kHz / 16-bit source" (the others: "HDCD PLAYING, 44.1 kHz / 16-bit HDCD (this disc is an HDCD)", "HDCD or 20-bit text left over from the CD-RW", "Something else (type it)")
+  Track 2 started from its beginning (optional): "No click" (the others: "A click at the very start", "Not tested")
+The owner also approved running AudioCheck on this disc (recorded as audiocheck_ok = true).
+$ grep -E 'CDPlayer\[14932:' /tmp/cdplayer-listen2-unified.log | grep -E 'Opened disc|Playback paused at|Buffering ended at|Raw read at LBA|Closed disc' | sed -E "$TRIM" | awk '$1 >= "20:20:00"'
+20:29:11.464 I Disc Opened disc 4295337022 in drive 4295330750 for reading
+20:29:14.527 E Disc Raw read at LBA 0 x7, C2 true, succeeded after 2962 ms
+20:29:15.149 Df Player Buffering ended at 0.05 s; 0 underrun frames so far
+20:29:23.798 E Disc Raw read at LBA 1977 x9, C2 true, succeeded after 2360 ms
+20:29:30.644 Df Player Playback paused at 15.50 s: 0 underrun frames; 0 concealed sectors.
+20:30:35.910 E Disc Raw read at LBA 1162 x8, C2 true, succeeded after 2897 ms
+20:30:36.539 Df Player Buffering ended at 15.57 s; 0 underrun frames so far
+20:30:39.361 Df Player Buffering ended at 291.79 s; 0 underrun frames so far
+20:30:43.545 E Disc Raw read at LBA 23195 x9, C2 true, succeeded after 719 ms
+20:30:45.836 Df Player Playback paused at 298.22 s: 0 underrun frames; 0 concealed sectors.
+20:31:28.201 I Disc Closed disc 4295337022
+Reading the lines: a run from the start paused at 15.50 s; a run resumed at 15.57 s and, after a skip to track 2, began again at 291.79 s, then paused at 298.22 s. Both playback summaries read 0 underrun frames and 0 concealed sectors. The four slow raw reads (0.72 to 2.96 s) each succeeded and none was followed by an underrun. "Closed disc" at 20:31:28 is the app closing the disc as it quit; the system log has no eject after 20:26:56.
+Read-only check of the control disc (summary; the raw OpticalCheck output was not kept): media 4295337022, 10 audio tracks, lead-out LBA 191445 (42:32); track 2 starts at LBA 21880 (291.73 s).
+Before the AudioCheck run, pgrep showed no CDPlayer process (summary). The Release AudioCheck was rebuilt from the working tree, so that it carries the engine fix (the build output is copied from its log; the thin spaces SwiftPM prints in the progress counters are shown as plain spaces):
+$ swift build --package-path Packages/CDKit -c release --product AudioCheck
+Building for production...
+[Planning deferred tasks]
+[4 / 16]
+[7 / 17] HDCD
+[19 / 27] HDCD
+[27 / 35] CDAudioCore
+[30 / 38]
+[31 / 38] CDAudioCore
+[33 / 39] CDKit
+[38 / 39] AudioCheck-product
+[39 / 40] AudioCheck-product
+[42 / 44] AudioCheck-product
+[43 / 44] AudioCheck-product
+Build complete! (11.46 sec.)
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295330750 --activate-silent
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295330750, media: 4295337022, 10 audio tracks; original reported speed 4233 kB/s.
+Device TOC matched the registry TOC before playback.
+Pacing: steady
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; start, zero output samples.
+HDCD: no HDCD packets; decoded: no; physical output 32-bit; first audio after 3626 ms (polled every 50 ms).
+PASS: start, 266240 frames, checksum e05cb08c6336eeff; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; seek, zero output samples.
+HDCD: no HDCD packets; decoded: no; physical output 32-bit; first audio after 786 ms (polled every 50 ms).
+PASS: seek, 221184 frames, checksum 05d621bedfb3449f; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; track boundary, zero output samples.
+HDCD: no HDCD packets; decoded: no; physical output 32-bit; first audio after 789 ms (polled every 50 ms).
+PASS: track boundary, 176640 frames, checksum c176a70f176ed767; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; pause, zero output samples.
+HDCD: no HDCD packets; decoded: no; physical output 32-bit; first audio after 788 ms (polled every 50 ms).
+PASS: pause, 220672 frames, checksum 51128879f80c81b8; restored 384000.0 Hz.
+PASS: pause held at frame 1543672 for 0.5 s with the output idle.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; resume, zero output samples.
+HDCD: no HDCD packets; decoded: no; physical output 32-bit; first audio after 784 ms (polled every 50 ms).
+PASS: resume, 221696 frames, checksum 4b5598a275d0acf3; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; end of disc, zero output samples.
+HDCD: no HDCD packets; decoded: no; physical output 32-bit; first audio after 793 ms (polled every 50 ms).
+PASS: end of disc, 220500 frames, checksum daed0946de694eb3; restored 384000.0 Hz.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+PASS: steady pacing raw reads (including checksum references): 1891 reads, 43709568 bytes in 26.812 s; 1630.2 kB/s.
+PASS: silent callback consumed 30.09 seconds of real disc PCM; output samples were zero.
+No system volume or mute setting was changed.
+PASS: original drive speed restored and verified at 4233 kB/s.
+Reading the output (ran 20:32:49 to 20:33:32, exit 0): each PASS means the checksum of the PCM the engine rendered equals the checksum of independent undecoded reads of the disc, as 16-bit samples shifted left by 16; the output received only zero samples, so nothing was audible. "no HDCD packets; decoded: no" in all six segments is what an ordinary CD should give. First audio came after 3626 ms at the start and 784 to 793 ms in the other five segments. The output rate and ownership were restored, no volume or mute setting was changed, and the drive speed was restored to 4233 kB/s.
+
+=== Follow-up: what requested the ejects (offline, 2026-11-03 21:3x) ===
+The persisted system log also keeps AppKit's activity line for each button click in CD Player. This query lists those clicks and every solicitation diskarbitrationd queued during the session:
+$ log show --start "2026-11-03 20:00:00" --end "2026-11-03 20:35:00" --info --style compact --predicate '(process == "CDPlayer" AND eventMessage CONTAINS "trackMouse send action on mouseUp") OR (process == "diskarbitrationd" AND eventMessage CONTAINS "queued solicitation")' > /tmp/cdplayer-eject-cause.log 2>&1
+The file has 39 lines: a header, 32 clicks (31 in PID 14932, the CD Player of these blocks, and one at 20:02:54 in PID 95854, an earlier instance) and the 6 solicitations. Each solicitation pair with the line before it (process name and PID kept, thread and subsystem removed):
+$ grep -E 'queued solicitation' -B1 /tmp/cdplayer-eject-cause.log | sed -E 's/^[0-9-]+ ([0-9:.]+) ([A-Za-z]+) +([A-Za-z]+)\[([0-9]+):[0-9a-f]+\] (\[com\.apple\.DiskArbitration\.diskarbitrationd:default\] +|\(AppKit\) )/\1 \2 \3[\4] /'
+20:10:01.940 A CDPlayer[14932] trackMouse send action on mouseUp
+20:10:01.977 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:10:01.985 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+--
+20:12:21.781 A CDPlayer[14932] trackMouse send action on mouseUp
+20:12:21.807 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:12:21.817 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+--
+20:26:56.380 A CDPlayer[14932] trackMouse send action on mouseUp
+20:26:56.450 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:26:56.458 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+The second eject came after two clicks half a second apart; the app's log has the first as a Stop:
+$ grep -E '20:12:2[01]' /tmp/cdplayer-eject-cause.log | sed -E 's/^[0-9-]+ ([0-9:.]+) ([A-Za-z]+) +([A-Za-z]+)\[([0-9]+):[0-9a-f]+\] (\[com\.apple\.DiskArbitration\.diskarbitrationd:default\] +|\(AppKit\) )/\1 \2 \3[\4] /'
+20:12:21.248 A CDPlayer[14932] trackMouse send action on mouseUp
+20:12:21.781 A CDPlayer[14932] trackMouse send action on mouseUp
+20:12:21.807 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000001:0000000000000001, kind = disk unmount, disk = <private>, options = 0x00000001.
+20:12:21.817 Df diskarbitrationd[565] <private> queued solicitation, id = 0000000000000002:0000000000000002, kind = disk eject, disk = <private>, options = 0x00000000.
+$ log show --start "2026-11-03 20:08:00" --end "2026-11-03 20:31:30" --info --style compact --predicate 'process == "CDPlayer" AND subsystem == "dev.cdplayer.CDPlayer"' > /tmp/cdplayer-eject-app.log 2>&1
+$ grep -E '20:(09|10|12):' /tmp/cdplayer-eject-app.log | grep -E 'Playback (stopped|paused) at' | sed -E "$TRIM"
+20:09:16.745 Df Player Playback stopped at 9.11 s: 0 underrun frames; 0 concealed sectors.
+20:10:53.848 Df Player Playback paused at 48.98 s: 0 underrun frames; 0 concealed sectors.
+20:12:21.299 Df Player Playback stopped at 54.48 s: 0 underrun frames; 0 concealed sectors.
+Reading the output: every eject request of the session came 26 to 70 ms after a click in CD Player, and no request came without one. The options match the app's eject (DiskEjectRequest.swift: DADiskUnmount with kDADiskUnmountOptionWhole, 0x1, then DADiskEject with kDADiskEjectOptionDefault, 0x0), and the 20:26:56 eject is the one the owner made with the app's Eject button. The log does not name the button clicked. My reading, not an owner report: the fourth button is Stop while playing and Eject when stopped, so at 20:12:21 it was clicked twice (Stop at .248, logged at .299, then Eject at .781), and at 20:10:01, with playback stopped since 20:09:16, one click ejected. A third process seen in those seconds, DiskUnmountWatcher (/System/Library/PrivateFrameworks/KerberosHelper/Helpers/DiskUnmountWatcher), logged only "DiskUnmountWatcher: callback" lines, from 20:10:02.032, after the eject was under way (summary of a log show of 20:10:00 to 20:10:03, not kept).
+
+=== Follow-up: the screen on track 5 runs, from screenshots (2026-11-03 21:37) ===
+The owner approved a short app playback of the test disc (WALKMAN at minimum volume) and screenshots of the CD Player window only. CD Player was rebuilt from the working tree first (xcodebuild as in DEVELOPMENT.md: BUILD SUCCEEDED) and launched fresh (PID 51787); the test disc was in the drive as media 4295339422 (read-only OpticalCheck: 7 tracks, lead-out 4950, track 5 at LBA 2700, the table of contents above). A helper using CGWindowListCopyWindowInfo gave the player window's number, 43656, and this loop took the shots, each named with its time to the millisecond:
+$ python3 /tmp/cdplayer-shoot.py   (repeats: screencapture -x -o -l 43656 /tmp/cdplayer-shots/<HHMMSS.mmm>.png, then a 0.2 s sleep)
+It took 301 shots from 21:37:10.130 to 21:38:58.073, 0.326 to 0.449 s apart (median 0.360 s). Meanwhile the owner played track 5 twice into track 6: run A first in this process, run B straight after, stopping each with Stop (no eject). The app's log for the two runs:
+$ log stream --level info --style compact --predicate 'subsystem == "dev.cdplayer.CDPlayer"' > /tmp/cdplayer-gap-stream.log
+$ sed -E "$TRIM" /tmp/cdplayer-gap-stream.log | grep -v -E '^(Filtering|Timestamp)'
+21:37:37.198 I Disc Drive 4295330750 stream-accurate CD reads: true; audio cache bound unknown unless independently established
+21:37:37.199 I Disc Opened disc 4295339422 in drive 4295330750 for reading
+21:37:37.279 E Disc Requested minimum drive speed 176 kB/s; reported 4233 kB/s. Actual read throughput is measured separately.
+21:37:38.011 I Power Holding off idle sleep while the CD plays
+21:37:38.790 E Disc Raw read at LBA 2700 x7, C2 true, succeeded after 1511 ms
+21:37:39.278 Df Player Buffering ended at 36.05 s; 0 underrun frames so far
+21:37:53.442 Df Player Playback stopped at 50.16 s: 0 underrun frames; 0 concealed sectors.
+21:37:53.460 I Disc Restored reported drive speed to 4233 kB/s
+21:37:53.460 I Disc Disc raw-read throughput: 1378.631312 kB/s over 324 attempts, 6801984 audio bytes (includes cache effects; excludes pacing)
+21:37:53.460 I Disc Closed disc 4295339422
+21:37:53.461 I Power Idle sleep allowed again
+21:38:26.034 I Disc Drive 4295330750 stream-accurate CD reads: true; audio cache bound unknown unless independently established
+21:38:26.034 I Disc Opened disc 4295339422 in drive 4295330750 for reading
+21:38:26.637 E Disc Requested minimum drive speed 176 kB/s; reported 4233 kB/s. Actual read throughput is measured separately.
+21:38:26.767 I Power Holding off idle sleep while the CD plays
+21:38:28.396 E Disc Raw read at LBA 2700 x7, C2 true, succeeded after 1759 ms
+21:38:28.862 Df Player Buffering ended at 36.01 s; 0 underrun frames so far
+21:38:41.676 Df Player Playback stopped at 48.78 s: 0 underrun frames; 0 concealed sectors.
+21:38:41.693 I Disc Restored reported drive speed to 4233 kB/s
+21:38:41.693 I Disc Disc raw-read throughput: 1308.578580 kB/s over 324 attempts, 6801984 audio bytes (includes cache effects; excludes pacing)
+21:38:41.693 I Disc Closed disc 4295339422
+21:38:41.694 I Power Idle sleep allowed again
+Both runs began at track 5 (36.00 s) and stopped in track 6, which starts at 48.00 s. To find the shots where the text changed:
+$ python3 /tmp/cdplayer-band.py   (decodes each PNG and prints its name whenever the MD5 of pixel rows 30-119, the band holding the status line and the source text, differs from the shot before; deleted afterwards)
+213710.130.png 749fe04d
+213735.788.png c21891bb
+213736.167.png 3e4836de
+213738.062.png 7c1d7221
+213738.406.png 8794c9d1
+213739.480.png 5bbacf10
+213739.833.png 998cd5c3
+213740.186.png bfe30ea7
+213751.250.png 6364e9fa
+213753.495.png 54e306af
+213753.837.png afa2b83e
+213825.933.png 1b4bf7e6
+213826.301.png 34c8d6bb
+213826.671.png 52c08310
+213827.029.png 1b1ee7fa
+213828.821.png e09c6196
+213829.179.png bfe30ea7
+213840.837.png 6364e9fa
+213841.562.png 763a579f
+213841.935.png afa2b83e
+What those shots show, read by me from the images (pairs differing only by a fade between texts or by the controls' enabled state are folded together; the shots were kept outside the repository):
+  Before run A (21:37:10): CD DETECTED, 44.1 kHz / 16-bit source, TRK 07 01:06.
+  Run A: PREPARING (35.788), BUFFERING (38.062), then CD PLAYING with 44.1 kHz / 16-bit source (39.480, a single shot), then HDCD PLAYING with 44.1 kHz / 16-bit HDCD (from 39.833) unchanged to 51.250, where TRK 06 shows with 44.1 kHz / 20-bit HDCD. After Stop (53.495): HDCD DETECTED, 20-bit HDCD.
+  Run B: HDCD DETECTED, 20-bit HDCD before Play (25.933); PREPARING (26.301) and BUFFERING (27.029) keep 20-bit HDCD; at 28.821, as BUFFERING fades into HDCD PLAYING, the text reads 16-bit HDCD and stays so (29.179, the same band as run A's 40.186) until TRK 06 at 40.837 with 20-bit HDCD. After Stop (41.935): HDCD DETECTED, 20-bit HDCD.
+Reading the shots against the code (my reading): the detection hold falls inside the 2 s prefill, so the status line reads PREPARING or BUFFERING through it, and the source text keeps the previous run's depth (16-bit source on a fresh disc in run A, 20-bit HDCD after run A in run B). On a disc not yet known as HDCD the hold ends with "no HDCD" (track 5's first 2 s are silence), so run A's first playing shot reads CD PLAYING and 16-bit source; HDCD PLAYING follows when the producer, reading ahead, reaches track 5's first effect at 4.456 s and reports it. That matches the "not yet known" row of the status table in HDCD_ROADMAP.md. Before the level drop, both runs read 16-bit HDCD, and 20-bit HDCD appeared only at track 6, where decoding starts; run B's carried 20-bit text showed only before any audio played.
+
+=== Follow-up: why track 2 of the ordinary CD had no click (read-only, 2026-11-03 21:43) ===
+With the owner's approval the control disc went back in and CD Player was quit; pgrep showed no CDPlayer, AudioCheck or OpticalCheck process (summary). A read-only OpticalCheck showed the control disc's table of contents again (now media 4295340633: 10 audio tracks, lead-out 191445, track 2 at LBA 21880). The capture reads the drive as the app does, so its first 667 frames are what a run from the start of track 2 plays first: the last 667 frames of track 1.
+$ AudioCheck --capture-pcm 4295330750 2 0 1 /tmp/cdplayer-ctl/track2-start.wav
+Drive 4295330750: PIONEER BD-RW  BDR-XS07U, media 4295340633; track 2, pre-emphasis false; sectors 21880..<21955.
+Speed: original 4233 kB/s; requested 176 kB/s; reported 4233 kB/s.
+Read 75 sectors (44100 frames); checksum f96bb5a458fc4d69; 55.8 kB/s.
+C2: 0 sectors flagged.
+PASS: original drive speed restored and verified at 4233 kB/s.
+Wrote /tmp/cdplayer-ctl/track2-start.wav: 176400 PCM bytes. It holds the disc's audio; delete it after analysis.
+$ python3 /tmp/cdplayer-ctl/measure.py   (reads the WAV's 16-bit stereo samples after its 44-byte header; reports peak and RMS over frames 0-666, the first and boundary frames, the largest frame-to-frame step, and peak and RMS after frame 667)
+frames 44100
+first 667 frames (end of track 1): peak 3526 = 10.76 % FS (-19.4 dBFS), rms 972.5 (-30.6 dBFS)
+first frame: 1315 1204  frame 666: 641 580  frame 667: 659 1011
+largest frame-to-frame step in frames 1..667: 756
+all-zero frames among the first 667: 0
+frames 667..<5077 (track 2): peak 32459 = 99.06 % FS, rms 9095.9 (-11.1 dBFS)
+frames 667..<44100 (track 2): peak 32459 = 99.06 % FS, rms 9197.4 (-11.0 dBFS)
+The WAV was deleted after this run.
+Reading the output: a run from the start of this track 2 also begins with 15.1 ms of the track before it, but that tail peaks at 10.8 % of full scale (against 77.6 % on the test disc), starts at 1315 and 1204 (against 6953 and 5761), and runs without a break into track 2, whose first 100 ms is already at -11.1 dBFS RMS. On the test disc the louder burst is followed by 0.457 s of silence, so it stands alone. My reading: on this disc the 15 ms tail is quiet and merges into the music, so there is nothing separate to hear as a click.
+
+=== Not covered ===
+Peak Extend lifting real peaks above 16-bit full scale: this sample flags it but barely uses it, so a disc that uses it is still needed.
+The texts on the track 5 runs before the level drop and during the detection hold are now recorded from screenshots ("Follow-up: the screen on track 5 runs" above), on one fresh run and one run after a decoded run; the owner added no notes on those two runs.
+The AudioCheck "decoded:" line follows the engine's snapshot, so after the fix it follows the same rule with no change to the tool. That was exercised on an effectual disc by the offline test of the engine only; no AudioCheck window was re-run on the test disc after the fix. The control run used the rebuilt tool on a disc without HDCD, which reads "decoded: no" as before.
+That the 667-frame burst at a track start is what the owner heard as a click: it fits the measurement and the reports, including the quiet, unbroken tail measured on track 2 of the ordinary CD ("Follow-up: why track 2 ..." above), but no run without the burst was tried.
+The 6 dB level difference by ear: the owner reported the decoded audio as clearly quieter, with clean sound. The factor itself is checked by sample values only (Offline decode section above): no-effect samples decode to exactly sample x 32768, against sample x 65536 undecoded.

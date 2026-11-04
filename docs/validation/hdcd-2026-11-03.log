@@ -1,0 +1,484 @@
+M8 HDCD disc analysis verification — original terminal output
+CD Player process check: not running.
+UTC: 2026-11-03T04:10:44Z
+Source commit: 416b13ee540cf6594faf4eda74dc32c5b0233bba
+$ ffmpeg -version
+ffmpeg version 7.1.1 Copyright (c) 2000-2025 the FFmpeg developers
+built with Apple clang version 17.0.0 (clang-1700.0.13.3)
+configuration: --prefix=/opt/homebrew/Cellar/ffmpeg/7.1.1_3 --enable-shared --enable-pthreads --enable-version3 --cc=clang --host-cflags= --host-ldflags='-Wl,-ld_classic' --enable-ffplay --enable-gnutls --enable-gpl --enable-libaom --enable-libaribb24 --enable-libbluray --enable-libdav1d --enable-libharfbuzz --enable-libjxl --enable-libmp3lame --enable-libopus --enable-librav1e --enable-librist --enable-librubberband --enable-libsnappy --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libtesseract --enable-libtheora --enable-libvidstab --enable-libvmaf --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx264 --enable-libx265 --enable-libxml2 --enable-libxvid --enable-lzma --enable-libfontconfig --enable-libfreetype --enable-frei0r --enable-libass --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenjpeg --enable-libspeex --enable-libsoxr --enable-libzmq --enable-libzimg --disable-libjack --disable-indev=jack --enable-videotoolbox --enable-audiotoolbox --enable-neon
+libavutil      59. 39.100 / 59. 39.100
+libavcodec     61. 19.101 / 61. 19.101
+libavformat    61.  7.100 / 61.  7.100
+libavdevice    61.  3.100 / 61.  3.100
+libavfilter    10.  4.100 / 10.  4.100
+libswscale      8.  3.100 /  8.  3.100
+libswresample   5.  3.100 /  5.  3.100
+libpostproc    58.  3.100 / 58.  3.100
+$ Packages/CDKit/.build/release/OpticalCheck
+Drive 4295303415: PIONEER BD-RW  BDR-XS07U
+  Media 4295303423: disk4, not mounted, ejectable=true
+  Audio CD: 3 audio / 3 total tracks, lead-out 64032
+  Playback timeline: 3 tracks, 64032 sectors, 37650816 frames (14:13)
+    Track 1, session 1, audio, LBA 0, 25342 sectors, pre-emphasis=false
+    Track 2, session 1, audio, LBA 25342, 19440 sectors, pre-emphasis=false
+    Track 3, session 1, audio, LBA 44782, 19250 sectors, pre-emphasis=false
+
+=== Full-track read-only captures ===
+Capture start UTC: 2026-11-03T04:11:05Z
+
+$ Packages/CDKit/.build/release/AudioCheck --capture-pcm 4295303415 1 0 600 /tmp/cdplayer-m8-evidence-20261103/track-1.wav
+Drive 4295303415: PIONEER BD-RW  BDR-XS07U, media 4295303423; track 1, pre-emphasis false; sectors 0..<25342.
+Speed: original 4233 kB/s; requested 176 kB/s; reported 4233 kB/s.
+Read 25342 sectors (14901096 frames); checksum ffe870b6f2f5d07d; 1571.0 kB/s.
+C2: 0 sectors flagged.
+PASS: original drive speed restored and verified at 4233 kB/s.
+Wrote /tmp/cdplayer-m8-evidence-20261103/track-1.wav: 59604384 PCM bytes. It holds the disc's audio; delete it after analysis.
+315cee48ab70df7fd53a1601e927946d45dfa7a8208f9383f06376fec6663bc5  /tmp/cdplayer-m8-evidence-20261103/track-1.wav
+
+$ Packages/CDKit/.build/release/AudioCheck --capture-pcm 4295303415 2 0 600 /tmp/cdplayer-m8-evidence-20261103/track-2.wav
+Drive 4295303415: PIONEER BD-RW  BDR-XS07U, media 4295303423; track 2, pre-emphasis false; sectors 25342..<44782.
+Speed: original 4233 kB/s; requested 176 kB/s; reported 4233 kB/s.
+Read 19440 sectors (11430720 frames); checksum a8a00ef30ba1e115; 2421.2 kB/s.
+C2: 0 sectors flagged.
+PASS: original drive speed restored and verified at 4233 kB/s.
+Wrote /tmp/cdplayer-m8-evidence-20261103/track-2.wav: 45722880 PCM bytes. It holds the disc's audio; delete it after analysis.
+da2855e91c6d5941a95ed2c730c908839afc349b73e8ea56178be192c1e3460a  /tmp/cdplayer-m8-evidence-20261103/track-2.wav
+
+$ Packages/CDKit/.build/release/AudioCheck --capture-pcm 4295303415 3 0 600 /tmp/cdplayer-m8-evidence-20261103/track-3.wav
+Drive 4295303415: PIONEER BD-RW  BDR-XS07U, media 4295303423; track 3, pre-emphasis false; sectors 44782..<64032.
+Speed: original 4233 kB/s; requested 176 kB/s; reported 4233 kB/s.
+Read 19250 sectors (11319000 frames); checksum 9630ef6978f5d0e6; 2621.5 kB/s.
+C2: 0 sectors flagged.
+PASS: original drive speed restored and verified at 4233 kB/s.
+Wrote /tmp/cdplayer-m8-evidence-20261103/track-3.wav: 45276000 PCM bytes. It holds the disc's audio; delete it after analysis.
+fa8bbb09b8c51b0406656b7bfecbdb3c0ca967b5e806d83edd1a1f14be79a37f  /tmp/cdplayer-m8-evidence-20261103/track-3.wav
+Capture end UTC: 2026-11-03T04:12:24Z
+
+=== Track 1: FFmpeg HDCD analysis ===
+$ ffmpeg -nostdin -hide_banner -nostats -v verbose -i /tmp/cdplayer-m8-evidence-20261103/track-1.wav -af hdcd -c:a pcm_s32le -f null -
+[wav @ 0x786b028000] parser not found for codec pcm_s16le, packets or times may be invalid.
+[aist#0:0/pcm_s16le @ 0x786ac50180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-1.wav':
+  Duration: 00:05:37.89, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[out#0/null @ 0x786ac2da40] No explicit maps, mapping streams automatically...
+[aost#0:0/pcm_s32le @ 0x786b058000] Created audio stream from input stream 0:0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Disabling automatic format conversion.
+[Parsed_hdcd_0 @ 0x786ac2dc80] Channel 0: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Channel 0: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Channel 1: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Channel 1: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] Packets: type: ?, total: 0
+[Parsed_hdcd_0 @ 0x786ac2dc80] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+[aost#0:0/pcm_s32le @ 0x786b058000] Starting thread...
+[af#0:0 @ 0x786b003700] Starting thread...
+[aist#0:0/pcm_s16le @ 0x786ac50180] [dec:pcm_s16le @ 0x786ac74500] Starting thread...
+[in#0/wav @ 0x786b024000] Starting thread...
+[Parsed_hdcd_0 @ 0x786ac2dec0] Disabling automatic format conversion.
+[graph_-1_in_0:0 @ 0x786ac2df80] tb:1/44100 samplefmt:s16 samplerate:44100 chlayout:stereo
+[Parsed_hdcd_0 @ 0x786ac2dec0] Looking for 16-bit HDCD in sample format s16
+[Parsed_hdcd_0 @ 0x786ac2dec0] CDT period: 2000ms (88200 samples @44100Hz)
+[Parsed_hdcd_0 @ 0x786ac2dec0] Process mode: process stereo channels together
+[Parsed_hdcd_0 @ 0x786ac2dec0] Force PE: off
+[Parsed_hdcd_0 @ 0x786ac2dec0] Analyze mode: [0] disabled
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[out#0/null @ 0x786ac2da40] Starting thread...
+[in#0/wav @ 0x786b024000] EOF while reading input
+[in#0/wav @ 0x786b024000] Terminating thread with return code 0 (success)
+[aist#0:0/pcm_s16le @ 0x786ac50180] [dec:pcm_s16le @ 0x786ac74500] Decoder thread received EOF packet
+[aist#0:0/pcm_s16le @ 0x786ac50180] [dec:pcm_s16le @ 0x786ac74500] Decoder returned EOF, finishing
+[aist#0:0/pcm_s16le @ 0x786ac50180] [dec:pcm_s16le @ 0x786ac74500] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x786b003700] Filtergraph returned EOF, finishing
+[af#0:0 @ 0x786b003700] All consumers returned EOF
+[Parsed_hdcd_0 @ 0x786ac2dec0] Channel 0: counter A: 0, B: 3363, C: 3363
+[Parsed_hdcd_0 @ 0x786ac2dec0] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x786ac2dec0] Channel 0: tg 0.0: 3363
+[Parsed_hdcd_0 @ 0x786ac2dec0] Channel 1: counter A: 0, B: 3363, C: 3363
+[Parsed_hdcd_0 @ 0x786ac2dec0] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x786ac2dec0] Channel 1: tg 0.0: 3363
+[Parsed_hdcd_0 @ 0x786ac2dec0] Packets: type: B, total: 6726
+[Parsed_hdcd_0 @ 0x786ac2dec0] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[aost#0:0/pcm_s32le @ 0x786b058000] Encoder thread received EOF
+[aost#0:0/pcm_s32le @ 0x786b058000] Terminating thread with return code 0 (success)
+[out#0/null @ 0x786ac2da40] All streams finished
+[out#0/null @ 0x786ac2da40] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x786b003700] Terminating thread with return code 0 (success)
+[out#0/null @ 0x786ac2da40] Output file #0 (pipe:):
+[out#0/null @ 0x786ac2da40]   Output stream #0:0 (audio): 3638 frames encoded (14901096 samples); 3638 packets muxed (119208768 bytes);
+[out#0/null @ 0x786ac2da40]   Total: 3638 packets (119208768 bytes) muxed
+[out#0/null @ 0x786ac2da40] video:0KiB audio:116415KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:05:37.89 bitrate=N/A speed=3.33e+03x
+[in#0/wav @ 0x786b024000] Input file #0 (/tmp/cdplayer-m8-evidence-20261103/track-1.wav):
+[in#0/wav @ 0x786b024000]   Input stream #0:0 (audio): 3638 packets read (59604384 bytes); 3638 frames decoded; 0 decode errors (14901096 samples);
+[in#0/wav @ 0x786b024000]   Total: 3638 packets (59604384 bytes) demuxed
+[AVIOContext @ 0x786ac74000] Statistics: 59669964 bytes read, 1 seeks
+FFmpeg exit status: 0
+
+=== Track 2: FFmpeg HDCD analysis ===
+$ ffmpeg -nostdin -hide_banner -nostats -v verbose -i /tmp/cdplayer-m8-evidence-20261103/track-2.wav -af hdcd -c:a pcm_s32le -f null -
+[wav @ 0x7831024000] parser not found for codec pcm_s16le, packets or times may be invalid.
+[aist#0:0/pcm_s16le @ 0x7830c54180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-2.wav':
+  Duration: 00:04:19.20, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[out#0/null @ 0x7830c31a40] No explicit maps, mapping streams automatically...
+[aost#0:0/pcm_s32le @ 0x7831404000] Created audio stream from input stream 0:0
+[Parsed_hdcd_0 @ 0x7830c31c80] Disabling automatic format conversion.
+[Parsed_hdcd_0 @ 0x7830c31c80] Channel 0: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] Channel 0: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] Channel 1: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] Channel 1: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] Packets: type: ?, total: 0
+[Parsed_hdcd_0 @ 0x7830c31c80] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+[aost#0:0/pcm_s32le @ 0x7831404000] Starting thread...
+[af#0:0 @ 0x7831003700] Starting thread...
+[aist#0:0/pcm_s16le @ 0x7830c54180] [dec:pcm_s16le @ 0x7830c78500] Starting thread...
+[in#0/wav @ 0x7831020000] Starting thread...
+[Parsed_hdcd_0 @ 0x7830c31ec0] Disabling automatic format conversion.
+[graph_-1_in_0:0 @ 0x7830c31f80] tb:1/44100 samplefmt:s16 samplerate:44100 chlayout:stereo
+[Parsed_hdcd_0 @ 0x7830c31ec0] Looking for 16-bit HDCD in sample format s16
+[Parsed_hdcd_0 @ 0x7830c31ec0] CDT period: 2000ms (88200 samples @44100Hz)
+[Parsed_hdcd_0 @ 0x7830c31ec0] Process mode: process stereo channels together
+[Parsed_hdcd_0 @ 0x7830c31ec0] Force PE: off
+[Parsed_hdcd_0 @ 0x7830c31ec0] Analyze mode: [0] disabled
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[out#0/null @ 0x7830c31a40] Starting thread...
+[in#0/wav @ 0x7831020000] EOF while reading input
+[in#0/wav @ 0x7831020000] Terminating thread with return code 0 (success)
+[aist#0:0/pcm_s16le @ 0x7830c54180] [dec:pcm_s16le @ 0x7830c78500] Decoder thread received EOF packet
+[aist#0:0/pcm_s16le @ 0x7830c54180] [dec:pcm_s16le @ 0x7830c78500] Decoder returned EOF, finishing
+[aist#0:0/pcm_s16le @ 0x7830c54180] [dec:pcm_s16le @ 0x7830c78500] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x7831003700] Filtergraph returned EOF, finishing
+[af#0:0 @ 0x7831003700] All consumers returned EOF
+[Parsed_hdcd_0 @ 0x7830c31ec0] Channel 0: counter A: 0, B: 2588, C: 2588
+[Parsed_hdcd_0 @ 0x7830c31ec0] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7830c31ec0] Channel 0: tg 0.0: 2588
+[Parsed_hdcd_0 @ 0x7830c31ec0] Channel 1: counter A: 0, B: 2588, C: 2588
+[Parsed_hdcd_0 @ 0x7830c31ec0] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7830c31ec0] Channel 1: tg 0.0: 2588
+[Parsed_hdcd_0 @ 0x7830c31ec0] Packets: type: B, total: 5176
+[Parsed_hdcd_0 @ 0x7830c31ec0] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[aost#0:0/pcm_s32le @ 0x7831404000] Encoder thread received EOF
+[aost#0:0/pcm_s32le @ 0x7831404000] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x7831003700] Terminating thread with return code 0 (success)
+[out#0/null @ 0x7830c31a40] All streams finished
+[out#0/null @ 0x7830c31a40] Terminating thread with return code 0 (success)
+[out#0/null @ 0x7830c31a40] Output file #0 (pipe:):
+[out#0/null @ 0x7830c31a40]   Output stream #0:0 (audio): 2791 frames encoded (11430720 samples); 2791 packets muxed (91445760 bytes);
+[out#0/null @ 0x7830c31a40]   Total: 2791 packets (91445760 bytes) muxed
+[out#0/null @ 0x7830c31a40] video:0KiB audio:89302KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:04:19.20 bitrate=N/A speed=3.69e+03x
+[in#0/wav @ 0x7831020000] Input file #0 (/tmp/cdplayer-m8-evidence-20261103/track-2.wav):
+[in#0/wav @ 0x7831020000]   Input stream #0:0 (audio): 2791 packets read (45722880 bytes); 2791 frames decoded; 0 decode errors (11430720 samples);
+[in#0/wav @ 0x7831020000]   Total: 2791 packets (45722880 bytes) demuxed
+[AVIOContext @ 0x7830c78000] Statistics: 45788460 bytes read, 1 seeks
+FFmpeg exit status: 0
+
+=== Track 3: FFmpeg HDCD analysis ===
+$ ffmpeg -nostdin -hide_banner -nostats -v verbose -i /tmp/cdplayer-m8-evidence-20261103/track-3.wav -af hdcd -c:a pcm_s32le -f null -
+[wav @ 0x7c4104c000] parser not found for codec pcm_s16le, packets or times may be invalid.
+[aist#0:0/pcm_s16le @ 0x7c4103c180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-3.wav':
+  Duration: 00:04:16.67, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[out#0/null @ 0x7c41034cc0] No explicit maps, mapping streams automatically...
+[aost#0:0/pcm_s32le @ 0x7c40d74000] Created audio stream from input stream 0:0
+[Parsed_hdcd_0 @ 0x7c41034f00] Disabling automatic format conversion.
+[Parsed_hdcd_0 @ 0x7c41034f00] Channel 0: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] Channel 0: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] Channel 1: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] Channel 1: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] Packets: type: ?, total: 0
+[Parsed_hdcd_0 @ 0x7c41034f00] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+[aost#0:0/pcm_s32le @ 0x7c40d74000] Starting thread...
+[af#0:0 @ 0x7c40830140] Starting thread...
+[aist#0:0/pcm_s16le @ 0x7c4103c180] [dec:pcm_s16le @ 0x7c41420500] Starting thread...
+[in#0/wav @ 0x7c41044000] Starting thread...
+[Parsed_hdcd_0 @ 0x7c41035140] Disabling automatic format conversion.
+[graph_-1_in_0:0 @ 0x7c41035200] tb:1/44100 samplefmt:s16 samplerate:44100 chlayout:stereo
+[Parsed_hdcd_0 @ 0x7c41035140] Looking for 16-bit HDCD in sample format s16
+[Parsed_hdcd_0 @ 0x7c41035140] CDT period: 2000ms (88200 samples @44100Hz)
+[Parsed_hdcd_0 @ 0x7c41035140] Process mode: process stereo channels together
+[Parsed_hdcd_0 @ 0x7c41035140] Force PE: off
+[Parsed_hdcd_0 @ 0x7c41035140] Analyze mode: [0] disabled
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[out#0/null @ 0x7c41034cc0] Starting thread...
+[in#0/wav @ 0x7c41044000] EOF while reading input
+[in#0/wav @ 0x7c41044000] Terminating thread with return code 0 (success)
+[aist#0:0/pcm_s16le @ 0x7c4103c180] [dec:pcm_s16le @ 0x7c41420500] Decoder thread received EOF packet
+[aist#0:0/pcm_s16le @ 0x7c4103c180] [dec:pcm_s16le @ 0x7c41420500] Decoder returned EOF, finishing
+[aist#0:0/pcm_s16le @ 0x7c4103c180] [dec:pcm_s16le @ 0x7c41420500] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x7c40830140] Filtergraph returned EOF, finishing
+[af#0:0 @ 0x7c40830140] All consumers returned EOF
+[Parsed_hdcd_0 @ 0x7c41035140] Channel 0: counter A: 0, B: 2557, C: 2557
+[Parsed_hdcd_0 @ 0x7c41035140] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7c41035140] Channel 0: tg 0.0: 2557
+[Parsed_hdcd_0 @ 0x7c41035140] Channel 1: counter A: 0, B: 2557, C: 2557
+[Parsed_hdcd_0 @ 0x7c41035140] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7c41035140] Channel 1: tg 0.0: 2557
+[Parsed_hdcd_0 @ 0x7c41035140] Packets: type: B, total: 5114
+[Parsed_hdcd_0 @ 0x7c41035140] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[aost#0:0/pcm_s32le @ 0x7c40d74000] Encoder thread received EOF
+[aost#0:0/pcm_s32le @ 0x7c40d74000] Terminating thread with return code 0 (success)
+[out#0/null @ 0x7c41034cc0] All streams finished
+[out#0/null @ 0x7c41034cc0] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x7c40830140] Terminating thread with return code 0 (success)
+[out#0/null @ 0x7c41034cc0] Output file #0 (pipe:):
+[out#0/null @ 0x7c41034cc0]   Output stream #0:0 (audio): 2764 frames encoded (11319000 samples); 2764 packets muxed (90552000 bytes);
+[out#0/null @ 0x7c41034cc0]   Total: 2764 packets (90552000 bytes) muxed
+[out#0/null @ 0x7c41034cc0] video:0KiB audio:88430KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:04:16.66 bitrate=N/A speed=3.78e+03x
+[in#0/wav @ 0x7c41044000] Input file #0 (/tmp/cdplayer-m8-evidence-20261103/track-3.wav):
+[in#0/wav @ 0x7c41044000]   Input stream #0:0 (audio): 2764 packets read (45276000 bytes); 2764 frames decoded; 0 decode errors (11319000 samples);
+[in#0/wav @ 0x7c41044000]   Total: 2764 packets (45276000 bytes) demuxed
+[AVIOContext @ 0x7c41420000] Statistics: 45341580 bytes read, 1 seeks
+FFmpeg exit status: 0
+
+=== Whole disc: continuous HDCD decode ===
+
+Concat list: track-1.wav, track-2.wav, track-3.wav (no decoder reset between tracks).
+
+$ ffmpeg -nostdin -hide_banner -nostats -v verbose -f concat -safe 0 -i /tmp/cdplayer-m8-evidence-20261103/concat.txt -af hdcd -c:a pcm_s32le -f s32le /tmp/cdplayer-m8-evidence-20261103/decoded.s32
+[wav @ 0x7cc4c3c280] parser not found for codec pcm_s16le, packets or times may be invalid.
+[aist#0:0/pcm_s16le @ 0x7cc5040180] Guessed Channel Layout: stereo
+Input #0, concat, from '/tmp/cdplayer-m8-evidence-20261103/concat.txt':
+  Duration: N/A, start: 0.000000, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[out#0/s32le @ 0x7cc54040c0] No explicit maps, mapping streams automatically...
+[aost#0:0/pcm_s32le @ 0x7cc4d40000] Created audio stream from input stream 0:0
+[Parsed_hdcd_0 @ 0x7cc5404480] Disabling automatic format conversion.
+[Parsed_hdcd_0 @ 0x7cc5404480] Channel 0: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] Channel 0: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] Channel 1: counter A: 0, B: 0, C: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] Channel 1: tg 0.0: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] Packets: type: ?, total: 0
+[Parsed_hdcd_0 @ 0x7cc5404480] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+[aost#0:0/pcm_s32le @ 0x7cc4d40000] Starting thread...
+[af#0:0 @ 0x7cc504c1e0] Starting thread...
+[aist#0:0/pcm_s16le @ 0x7cc5040180] [dec:pcm_s16le @ 0x7cc5074640] Starting thread...
+[in#0/concat @ 0x7cc4c38000] Starting thread...
+[Parsed_hdcd_0 @ 0x7cc54046c0] Disabling automatic format conversion.
+[graph_-1_in_0:0 @ 0x7cc5404780] tb:1/44100 samplefmt:s16 samplerate:44100 chlayout:stereo
+[Parsed_hdcd_0 @ 0x7cc54046c0] Looking for 16-bit HDCD in sample format s16
+[Parsed_hdcd_0 @ 0x7cc54046c0] CDT period: 2000ms (88200 samples @44100Hz)
+[Parsed_hdcd_0 @ 0x7cc54046c0] Process mode: process stereo channels together
+[Parsed_hdcd_0 @ 0x7cc54046c0] Force PE: off
+[Parsed_hdcd_0 @ 0x7cc54046c0] Analyze mode: [0] disabled
+Output #0, s32le, to '/tmp/cdplayer-m8-evidence-20261103/decoded.s32':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[out#0/s32le @ 0x7cc54040c0] Starting thread...
+[AVIOContext @ 0x7cc5074140] Statistics: 59669964 bytes read, 1 seeks
+[wav @ 0x7cc4c3c280] parser not found for codec pcm_s16le, packets or times may be invalid.
+[AVIOContext @ 0x7cc5074140] Statistics: 45788460 bytes read, 1 seeks
+[wav @ 0x7cc4c3c280] parser not found for codec pcm_s16le, packets or times may be invalid.
+[in#0/concat @ 0x7cc4c38000] EOF while reading input
+[in#0/concat @ 0x7cc4c38000] Terminating thread with return code 0 (success)
+[aist#0:0/pcm_s16le @ 0x7cc5040180] [dec:pcm_s16le @ 0x7cc5074640] Decoder thread received EOF packet
+[aist#0:0/pcm_s16le @ 0x7cc5040180] [dec:pcm_s16le @ 0x7cc5074640] Decoder returned EOF, finishing
+[aist#0:0/pcm_s16le @ 0x7cc5040180] [dec:pcm_s16le @ 0x7cc5074640] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x7cc504c1e0] Filtergraph returned EOF, finishing
+[af#0:0 @ 0x7cc504c1e0] All consumers returned EOF
+[Parsed_hdcd_0 @ 0x7cc54046c0] Channel 0: counter A: 0, B: 8508, C: 8508
+[Parsed_hdcd_0 @ 0x7cc54046c0] Channel 0: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7cc54046c0] Channel 0: tg 0.0: 8508
+[Parsed_hdcd_0 @ 0x7cc54046c0] Channel 1: counter A: 0, B: 8508, C: 8508
+[Parsed_hdcd_0 @ 0x7cc54046c0] Channel 1: pe: 0, tf: 0, almost_A: 0, checkfail_B: 0, unmatched_C: 0, cdt_expired: 0
+[Parsed_hdcd_0 @ 0x7cc54046c0] Channel 1: tg 0.0: 8508
+[Parsed_hdcd_0 @ 0x7cc54046c0] Packets: type: B, total: 17016
+[Parsed_hdcd_0 @ 0x7cc54046c0] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[aost#0:0/pcm_s32le @ 0x7cc4d40000] Encoder thread received EOF
+[aost#0:0/pcm_s32le @ 0x7cc4d40000] Terminating thread with return code 0 (success)
+[out#0/s32le @ 0x7cc54040c0] All streams finished
+[out#0/s32le @ 0x7cc54040c0] Terminating thread with return code 0 (success)
+[af#0:0 @ 0x7cc504c1e0] Terminating thread with return code 0 (success)
+[AVIOContext @ 0x7cc5074a00] Statistics: 301206528 bytes written, 0 seeks, 1150 writeouts
+[out#0/s32le @ 0x7cc54040c0] Output file #0 (/tmp/cdplayer-m8-evidence-20261103/decoded.s32):
+[out#0/s32le @ 0x7cc54040c0]   Output stream #0:0 (audio): 9193 frames encoded (37650816 samples); 9193 packets muxed (301206528 bytes);
+[out#0/s32le @ 0x7cc54040c0]   Total: 9193 packets (301206528 bytes) muxed
+[out#0/s32le @ 0x7cc54040c0] video:0KiB audio:294147KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: 0.000000%
+size=  294147KiB time=00:14:13.76 bitrate=2822.4kbits/s speed=3.15e+03x
+[in#0/concat @ 0x7cc4c38000] Input file #0 (/tmp/cdplayer-m8-evidence-20261103/concat.txt):
+[in#0/concat @ 0x7cc4c38000]   Input stream #0:0 (audio): 9193 packets read (150603264 bytes); 9193 frames decoded; 0 decode errors (37650816 samples);
+[in#0/concat @ 0x7cc4c38000]   Total: 9193 packets (150603264 bytes) demuxed
+[AVIOContext @ 0x7cc5074140] Statistics: 45341580 bytes read, 1 seeks
+[AVIOContext @ 0x7cc5074000] Statistics: 162 bytes read, 0 seeks
+FFmpeg exit status: 0
+
+=== Full-disc sample-by-sample comparison (Node.js) ===
+Compare each original signed little-endian Int16 sample with the corresponding continuous FFmpeg Int32 output: decoded == source * 32768.
+Normalized Int32 / 2^31 is therefore exactly half of source Int16 / 2^15.
+Track 1: 14901096 stereo frames, 29802192 samples compared, 0 mismatches.
+Track 2: 11430720 stereo frames, 22861440 samples compared, 0 mismatches.
+Track 3: 11319000 stereo frames, 22638000 samples compared, 0 mismatches.
+TOTAL: 75301632 samples compared, 0 mismatches, decoded EOF verified.
+PASS: continuous decoded audio is exactly half-scale throughout the complete disc.
+
+=== Sample-precise initial HDCD detection ===
+Binary-search the shortest prefix for which FFmpeg reports HDCD detected: yes. atrim precedes hdcd; no output -t or decoder look-ahead past the prefix.
+
+$ ffmpeg -nostdin -hide_banner -nostats -v info -i /tmp/cdplayer-m8-evidence-20261103/track-1.wav -af atrim=end_sample=46806,hdcd -c:a pcm_s32le -f null -
+[aist#0:0/pcm_s16le @ 0x7863060180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-1.wav':
+  Duration: 00:05:37.89, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[Parsed_hdcd_1 @ 0x7863035080] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[Parsed_hdcd_1 @ 0x78630352c0] HDCD detected: no
+[out#0/null @ 0x7863034d80] video:0KiB audio:366KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:01.06 bitrate=N/A speed=1.54e+03x
+FFmpeg exit status: 0
+
+$ ffmpeg -nostdin -hide_banner -nostats -v info -i /tmp/cdplayer-m8-evidence-20261103/track-1.wav -af atrim=end_sample=46807,hdcd -c:a pcm_s32le -f null -
+[aist#0:0/pcm_s16le @ 0x76a905c180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-1.wav':
+  Duration: 00:05:37.89, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[Parsed_hdcd_1 @ 0x76a9034fc0] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[Parsed_hdcd_1 @ 0x76a9035200] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[out#0/null @ 0x76a9034cc0] video:0KiB audio:366KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:01.06 bitrate=N/A speed=1.6e+03x
+FFmpeg exit status: 0
+Track 1: shortest positive prefix 46807 stereo frames = 1.061383 s; prefix 46806 frames is negative.
+
+$ ffmpeg -nostdin -hide_banner -nostats -v info -i /tmp/cdplayer-m8-evidence-20261103/track-2.wav -af atrim=end_sample=81,hdcd -c:a pcm_s32le -f null -
+[aist#0:0/pcm_s16le @ 0x7853020180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-2.wav':
+  Duration: 00:04:19.20, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[Parsed_hdcd_1 @ 0x7853058480] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[Parsed_hdcd_1 @ 0x78530586c0] HDCD detected: no
+[out#0/null @ 0x7853058180] video:0KiB audio:1KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:00.00 bitrate=N/A speed=3.52x
+FFmpeg exit status: 0
+
+$ ffmpeg -nostdin -hide_banner -nostats -v info -i /tmp/cdplayer-m8-evidence-20261103/track-2.wav -af atrim=end_sample=82,hdcd -c:a pcm_s32le -f null -
+[aist#0:0/pcm_s16le @ 0x7b3f03c180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-2.wav':
+  Duration: 00:04:19.20, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[Parsed_hdcd_1 @ 0x7b3f031080] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[Parsed_hdcd_1 @ 0x7b3f0312c0] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[out#0/null @ 0x7b3f030d80] video:0KiB audio:1KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:00.00 bitrate=N/A speed=3.19x
+FFmpeg exit status: 0
+Track 2: shortest positive prefix 82 stereo frames = 0.001859 s; prefix 81 frames is negative.
+
+$ ffmpeg -nostdin -hide_banner -nostats -v info -i /tmp/cdplayer-m8-evidence-20261103/track-3.wav -af atrim=end_sample=557,hdcd -c:a pcm_s32le -f null -
+[aist#0:0/pcm_s16le @ 0x7cb7060180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-3.wav':
+  Duration: 00:04:16.67, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[Parsed_hdcd_1 @ 0x7cb7034fc0] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[Parsed_hdcd_1 @ 0x7cb7035200] HDCD detected: no
+[out#0/null @ 0x7cb7034cc0] video:0KiB audio:4KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:00.01 bitrate=N/A speed=24.1x
+FFmpeg exit status: 0
+
+$ ffmpeg -nostdin -hide_banner -nostats -v info -i /tmp/cdplayer-m8-evidence-20261103/track-3.wav -af atrim=end_sample=558,hdcd -c:a pcm_s32le -f null -
+[aist#0:0/pcm_s16le @ 0x7666c34180] Guessed Channel Layout: stereo
+Input #0, wav, from '/tmp/cdplayer-m8-evidence-20261103/track-3.wav':
+  Duration: 00:04:16.67, bitrate: 1411 kb/s
+  Stream #0:0: Audio: pcm_s16le ([1][0][0][0] / 0x0001), 44100 Hz, stereo, s16, 1411 kb/s
+[Parsed_hdcd_1 @ 0x7667064480] HDCD detected: no
+Stream mapping:
+  Stream #0:0 -> #0:0 (pcm_s16le (native) -> pcm_s32le (native))
+Output #0, null, to 'pipe:':
+  Metadata:
+    encoder         : Lavf61.7.100
+  Stream #0:0: Audio: pcm_s32le, 44100 Hz, stereo, s32, 2822 kb/s
+      Metadata:
+        encoder         : Lavc61.19.101 pcm_s32le
+[Parsed_hdcd_1 @ 0x76670646c0] HDCD detected: yes, peak_extend: never enabled, max_gain_adj: 0.0 dB, transient_filter: not detected, detectable errors: 0
+[out#0/null @ 0x7667064180] video:0KiB audio:4KiB subtitle:0KiB other streams:0KiB global headers:0KiB muxing overhead: unknown
+size=N/A time=00:00:00.01 bitrate=N/A speed=19.4x
+FFmpeg exit status: 0
+Track 3: shortest positive prefix 558 stereo frames = 0.012653 s; prefix 557 frames is negative.
+
+Cleanup PASS: all three captured WAV files, decoded PCM and temporary concat list were deleted; the temporary directory no longer exists. Only text evidence is retained.
+
+=== Offline regression after capture-file lifecycle corrections ===
+
+$ swift test --package-path Packages/CDKit
+✔ Test run with 423 tests in 7 suites passed after 16.502 seconds.
+✔ Test run with 29 tests in 2 suites passed after 0.020 seconds.
+$ swift test --package-path Packages/CDKit --sanitize=address
+✔ Test run with 423 tests in 7 suites passed after 17.054 seconds.
+✔ Test run with 29 tests in 2 suites passed after 0.031 seconds.
+$ swift test --package-path Packages/CDKit --sanitize=thread
+✔ Test run with 423 tests in 7 suites passed after 24.844 seconds.
+✔ Test run with 29 tests in 2 suites passed after 0.024 seconds.
+Transcript formatting: trailing horizontal whitespace normalized; output content retained.

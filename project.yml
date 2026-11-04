@@ -1,0 +1,58 @@
+name: CDPlayer
+options:
+  bundleIdPrefix: io.github.ylau674
+  deploymentTarget:
+    macOS: "14.0"
+packages:
+  CDKit:
+    path: Packages/CDKit
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+targets:
+  CDPlayer:
+    type: application
+    platform: macOS
+    sources:
+      - App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.ylau674.CDPlayer
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    dependencies:
+      - package: CDKit
+  CDPlayerUITests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/AppTests
+      - App/AudioLevelBars.swift
+      - App/PlayerView.swift
+      - App/PlayerCommands.swift
+      - App/PlayerWindow.swift
+      - App/OutputStatusLine.swift
+      - App/TransportButton.swift
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+    dependencies:
+      - package: CDKit
+schemes:
+  CDPlayer:
+    build:
+      targets:
+        CDPlayer: all
+    run:
+      config: Debug
+    test:
+      targets:
+        - CDPlayerUITests

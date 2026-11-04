@@ -1,0 +1,259 @@
+M8.3 HDCD live verification — terminal output assembled from the saved logs
+Redacted for publication: the serial number in output UIDs is shown as <redacted>.
+Date: 2026-11-03. Base commit: c163c72613b00305c524da3659afb304eef41f40, plus the M8.3 working-tree changes committed with this log.
+Disc: the owner's HDCD disc from docs/validation/hdcd-2026-11-03.log (3 tracks, 14:13; packets that switch nothing on).
+Drive 4295303415: PIONEER BDR-XS07U, media 4295303423. Output: Sony Walkman NW-A306 in USB DAC mode, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1.
+CD Player was not running during any check-tool run. Captures were written to a private temporary folder and deleted; only text is kept.
+
+=== Output discovery (read-only) ===
+$ AudioCheck --list-outputs   (WALKMAN entry)
+WALKMAN (USB)
+  UID: AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+  384000.0 Hz; native 44.1 kHz: true; stereo: true; hog owner: -1; host volume: false
+Captured baseline: walkman-before.json; physical format at 44.1 kHz stereo: 32-bit integer.
+
+=== Silent pipeline check, HDCD decoding on (first run; drive spun up during start) ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295303415 --activate-silent
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295303415, media: 4295303423, 3 audio tracks; original reported speed 4233 kB/s.
+Device TOC matched the registry TOC before playback.
+Pacing: steady
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; start, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 3620 ms (polled every 50 ms).
+PASS: start, 266752 frames, checksum ce394714dbb7f8ff; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; seek, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 796 ms (polled every 50 ms).
+PASS: seek, 220672 frames, checksum 946476004fd8ec7f; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; track boundary, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 791 ms (polled every 50 ms).
+PASS: track boundary, 177152 frames, checksum 43b4c3bf968512c3; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; pause, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 790 ms (polled every 50 ms).
+PASS: pause, 222208 frames, checksum 11245a82f70344b2; restored 384000.0 Hz.
+PASS: pause held at frame 1545208 for 0.5 s with the output idle.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; resume, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 785 ms (polled every 50 ms).
+PASS: resume, 222208 frames, checksum 1b595eb09f44472a; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; end of disc, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 785 ms (polled every 50 ms).
+PASS: end of disc, 220500 frames, checksum c603e8b2a5acfa4d; restored 384000.0 Hz.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+PASS: steady pacing raw reads (including checksum references): 1888 reads, 43667232 bytes in 26.945 s; 1620.6 kB/s.
+PASS: silent callback consumed 30.15 seconds of real disc PCM; output samples were zero.
+No system volume or mute setting was changed.
+PASS: original drive speed restored and verified at 4233 kB/s.
+
+=== Silent pipeline check, HDCD decoding off ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295303415 --activate-silent --hdcd-off
+HDCD decoding: off (--hdcd-off); HDCD is still detected and every sample passes through.
+Drive: 4295303415, media: 4295303423, 3 audio tracks; original reported speed 4233 kB/s.
+Device TOC matched the registry TOC before playback.
+Pacing: steady
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; start, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 898 ms (polled every 50 ms).
+PASS: start, 266240 frames, checksum c75a452d260818d4; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; seek, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 788 ms (polled every 50 ms).
+PASS: seek, 222208 frames, checksum 87bfd265b7a51faa; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; track boundary, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 785 ms (polled every 50 ms).
+PASS: track boundary, 178688 frames, checksum ec99933481658637; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; pause, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 783 ms (polled every 50 ms).
+PASS: pause, 221696 frames, checksum 3193e52f4945232c; restored 384000.0 Hz.
+PASS: pause held at frame 1544696 for 0.5 s with the output idle.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; resume, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 779 ms (polled every 50 ms).
+PASS: resume, 222720 frames, checksum 3346163d86a7bd80; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; end of disc, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 787 ms (polled every 50 ms).
+PASS: end of disc, 220500 frames, checksum c603e8b2a5acfa4d; restored 384000.0 Hz.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+PASS: steady pacing raw reads (including checksum references): 1889 reads, 43688400 bytes in 24.269 s; 1800.1 kB/s.
+PASS: silent callback consumed 30.21 seconds of real disc PCM; output samples were zero.
+No system volume or mute setting was changed.
+PASS: original drive speed restored and verified at 4233 kB/s.
+
+=== Silent pipeline check, HDCD decoding on (repeat, drive already spinning) ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295303415 --activate-silent
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295303415, media: 4295303423, 3 audio tracks; original reported speed 4233 kB/s.
+Device TOC matched the registry TOC before playback.
+Pacing: steady
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; start, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 780 ms (polled every 50 ms).
+PASS: start, 264704 frames, checksum a09a01f48eb1e415; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; seek, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 786 ms (polled every 50 ms).
+PASS: seek, 222720 frames, checksum 3268b7fe71405e0b; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; track boundary, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 783 ms (polled every 50 ms).
+PASS: track boundary, 178688 frames, checksum ec99933481658637; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; pause, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 784 ms (polled every 50 ms).
+PASS: pause, 222208 frames, checksum 11245a82f70344b2; restored 384000.0 Hz.
+PASS: pause held at frame 1545208 for 0.5 s with the output idle.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; resume, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 786 ms (polled every 50 ms).
+PASS: resume, 222208 frames, checksum 1b595eb09f44472a; restored 384000.0 Hz.
+Active: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1, 44100.0 Hz, 2 channels; end of disc, zero output samples.
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit; first audio after 788 ms (polled every 50 ms).
+PASS: end of disc, 220500 frames, checksum c603e8b2a5acfa4d; restored 384000.0 Hz.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+PASS: steady pacing raw reads (including checksum references): 2008 reads, 46172112 bytes in 18.993 s; 2431.0 kB/s.
+PASS: silent callback consumed 30.18 seconds of real disc PCM; output samples were zero.
+No system volume or mute setting was changed.
+PASS: original drive speed restored and verified at 4233 kB/s.
+
+=== Detection gap after a reset (HDCDCheck --seek-gaps on full-track captures) ===
+$ AudioCheck --capture-pcm 4295303415 <1|2|3> 0 600 <private tmp>/t<N>.wav   (each: C2 0 sectors flagged; drive speed restored to 4233 kB/s)
+$ tail -c +45 t<N>.wav > t<N>.s16le && HDCDCheck --seek-gaps t<N>.s16le   (last lines of output)
+== track 1
+Reset points: 913 measured, every 16317 frames over 337.89 s.
+First packet after the reset at the start of the input: 1061.4 ms.
+Audio before the next packet: min 1.7 ms, median 51.7 ms, 95th percentile 97.1 ms, max 1061.4 ms.
+Reset points with no packet within 5 s: 0.
+== track 2
+Reset points: 701 measured, every 16317 frames over 259.20 s.
+First packet after the reset at the start of the input: 1.9 ms.
+Audio before the next packet: min 1.7 ms, median 51.7 ms, 95th percentile 96.8 ms, max 101.7 ms.
+Reset points with no packet within 5 s: 0.
+== track 3
+Reset points: 692 measured, every 16317 frames over 256.67 s.
+First packet after the reset at the start of the input: 12.7 ms.
+Audio before the next packet: min 1.7 ms, median 51.5 ms, 95th percentile 96.6 ms, max 101.7 ms.
+Reset points with no packet within 5 s: 0.
+$ rm -rf <private tmp>   (captures deleted)
+
+=== Engine alone, Release, 60 s inside track 1 ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295303415 --activate-silent --observe 60 60
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295303415, media: 4295303423; original reported speed 4233 kB/s.
+Observing 1:00.00 (track 1, LBA 4500) to 2:00.00 (track 1, LBA 9000) with steady pacing; output samples are zero.
+Retry policy: single pass, the app's default (each block read once; C2-flagged samples interpolated).
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+[+3.42 s] Pause during start-up BUFFERING returned in 1067 ms at 1:00.00 (track 1, LBA 4500); resuming in 1 s
+[+5.20 s] Play returned in 732 ms
+[+5.26 s] First audio at 1:00.06 (track 1, LBA 4504) after 55 ms
+[+65.31 s] Stop returned in 66 ms at 2:00.05 (track 1, LBA 9003)
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 1:00.00 (track 1, LBA 4500) to 2:00.05 (track 1, LBA 9003) (60.05 s of audio) in 65.32 s wall time; window completed.
+Recovery BUFFERING: 0 episodes, 0.00 s total, longest 0.00 s; underrun frames 0 (0.00 s).
+Concealed sectors (summed per playback run): 0; unverified: no; C2-flagged sectors cleared by retries: 0.
+Control latency: pause during BUFFERING 1067 ms, resume 732 ms, final stop 66 ms.
+Raw reads: 970 reads, 20443584 audio bytes, 15.56 s inside reads; 1314.3 kB/s (1x is 176.4 kB/s; reads of 0.5 s or more are logged by CDKit).
+PASS: original drive speed restored and verified at 4233 kB/s.
+Process samples (elapsed s, cumulative CPU, RSS KB):
+0   0:00.01  13008
+5   0:00.08  20896
+10   0:00.22  27776
+15   0:00.33  28400
+20   0:00.40  28320
+25   0:00.46  28000
+30   0:00.53  25392
+35   0:00.59  27104
+40   0:00.66  26640
+45   0:00.72  26640
+50   0:00.79  26640
+55   0:00.85  24768
+60   0:00.92  25648
+    phys_footprint: 17 MB
+    phys_footprint_peak: 17 MB
+Steady CPU (15–60 s): (0.92 - 0.33) / 45 = 1.3% of one core.
+
+=== Rendered checksum against an independent read of the same frames ===
+$ AudioCheck --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1 --disc 4295303415 --activate-silent --observe 120 20
+HDCD decoding: on, the app's default (effectual HDCD is decoded on outputs of 20 bits or more).
+Drive: 4295303415, media: 4295303423; original reported speed 4233 kB/s.
+Observing 2:00.00 (track 1, LBA 9000) to 2:20.00 (track 1, LBA 10500) with steady pacing; output samples are zero.
+Retry policy: single pass, the app's default (each block read once; C2-flagged samples interpolated).
+Selected output: WALKMAN, UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+Before: 384000.0 Hz, hog owner -1, running false
+[+3.24 s] Pause during start-up BUFFERING returned in 870 ms at 2:00.00 (track 1, LBA 9000); resuming in 1 s
+[+5.03 s] Play returned in 733 ms
+[+5.09 s] First audio at 2:00.06 (track 1, LBA 9004) after 55 ms
+[+25.12 s] Stop returned in 40 ms at 2:20.04 (track 1, LBA 10502)
+HDCD: HDCD packets that switch nothing on; decoded: no; physical output 32-bit.
+Rendered PCM checksum 484330ae62efc292 for frames 5292000..<6175712 (883712 frames, 32-bit little-endian samples) of the final run.
+PASS: output rate 384000.0 Hz, ownership -1, and idle state restored.
+Summary: 2:00.00 (track 1, LBA 9000) to 2:20.04 (track 1, LBA 10502) (20.04 s of audio) in 25.13 s wall time; window completed.
+Recovery BUFFERING: 0 episodes, 0.00 s total, longest 0.00 s; underrun frames 0 (0.00 s).
+Concealed sectors (summed per playback run): 0; unverified: no; C2-flagged sectors cleared by retries: 0.
+Control latency: pause during BUFFERING 870 ms, resume 733 ms, final stop 40 ms.
+Raw reads: 539 reads, 11357808 audio bytes, 11.93 s inside reads; 951.9 kB/s (1x is 176.4 kB/s; reads of 0.5 s or more are logged by CDKit).
+PASS: original drive speed restored and verified at 4233 kB/s.
+$ AudioCheck --capture-pcm 4295303415 1 120 25 <private tmp>/w.wav
+Python FNV-1a over frames 0..<883712 of the capture, each 16-bit sample fed as 0, 0, lo, hi (the undecoded 32-bit ring value):
+independent widened checksum 484330ae62efc292   (matches the rendered checksum)
+$ rm -rf <private tmp>   (capture deleted)
+
+=== Output state after the check tools ===
+$ AudioCheck --verify-output-state after walkman-before.json walkman-after-checks.json --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+PASS: after configuration checks for UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1.
+
+=== App session, Release build, WALKMAN, track 1 (owner pressed Play) ===
+Owner: source text '44.1 kHz · HDCD source'; tooltip 'HDCD disc using no decodable features; it plays unchanged and bit perfect.'
+Before the fix, meters shown (elapsed s, cumulative CPU, RSS KB):
+0   0:09.54  96800
+5   0:09.90  96608
+10   0:10.28  98160
+15   0:10.65  99360
+20   0:11.00  99856
+25   0:11.36 101008
+30   0:11.71 100128
+35   0:12.05  99424
+40   0:12.41  99952
+45   0:12.76  97024
+50   0:13.10  96832
+55   0:13.45  97440
+60   0:13.79  98000
+    phys_footprint: 45 MB
+  => (13.79 - 9.54) / 60 = 7.1%
+Before the fix, meters hidden:
+0   0:25.70  88144
+5   0:26.04  88144
+10   0:26.37  88000
+15   0:26.70  88000
+20   0:27.04  88000
+25   0:27.38  88000
+30   0:27.72  87984
+35   0:28.05  87920
+40   0:28.39  84128
+45   0:28.72  83712
+50   0:29.07  83712
+55   0:29.40  83792
+60   0:29.74  83360
+    phys_footprint: 49 MB
+  => (29.74 - 25.70) / 60 = 6.7%
+A 5 s 'sample' profile showed SwiftUI AttributeGraph updates, PlayerView.body and PlayerCommands.body on the main thread:
+updatePlaybackQuality(from:) reassigned three @Published HDCD values on every 100 ms poll. Fixed to assign only on change.
+After the fix, meters hidden:
+0   0:01.22  96384
+5   0:01.33  94640
+10   0:01.44  94624
+15   0:01.55  91664
+20   0:01.65  91312
+25   0:01.75  91104
+30   0:01.86  92208
+35   0:01.96  92544
+40   0:02.06  90416
+45   0:02.16  89232
+50   0:02.26  88496
+55   0:02.36  89344
+60   0:02.47  89760
+    phys_footprint: 41 MB
+  => (2.47 - 1.22) / 60 = 2.1%
+Owner listening checks: Decode HDCD off then Forward 10 Seconds; on then Forward 10 Seconds; Next Track to 2 and 3; Previous Track;
+Back/Forward 10 Seconds several times. No level jumps, clicks or dropouts; the source text stayed 'HDCD source'.
+
+=== Output state after the app session ===
+$ AudioCheck --verify-output-state after walkman-before.json walkman-after-app.json --output-uid AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1
+PASS: after configuration checks for UID AppleUSBAudioEngine:Sony:WALKMAN:<redacted>:1.
