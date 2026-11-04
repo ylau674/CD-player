@@ -164,12 +164,13 @@ formats. It is used only for approved crash-recovery tests.
    minimization/restoration and their visibility notifications are preserved.
    The window is non-opaque with a clear background. `PlayerPanelBackground`
    observes CDKit's `PanelTransparency`: a 0–90% transparency setting, initially
-   70%, persisted as `BackgroundTransparency` in the app's defaults. The app
-   delegate shares that model with the window and View menu. SwiftUI command
-   menus cannot host sliders on all supported macOS releases, so
+   15% when no preference is saved, persisted as `BackgroundTransparency` in
+   the app's defaults. The app delegate shares that model with the window and
+   View menu. SwiftUI command menus cannot host sliders on all supported macOS
+   releases, so
    `PanelTransparencyMenuController` lazily creates the AppKit slider view
    the first time the submenu opens, then appends it with a separator after
-   SwiftUI's Reset to 70% item. This avoids the slider's memory cost in
+   SwiftUI's Reset to 15% item. This avoids the slider's memory cost in
    sessions that never open the submenu. SwiftUI empties
    and refills that submenu when the View menu first opens, so the controller
    re-places the item whenever the submenu's items change, not only when

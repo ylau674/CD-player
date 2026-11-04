@@ -2,13 +2,13 @@ import Foundation
 import Testing
 @testable import CDKit
 
-@Test @MainActor func panelTransparencyDefaultsTo70AndPersists() throws {
+@Test @MainActor func panelTransparencyDefaultsTo15AndPersists() throws {
     let suite = "CDKitTests.Transparency.\(UUID().uuidString)"
     let defaults = try #require(UserDefaults(suiteName: suite))
     defer { defaults.removePersistentDomain(forName: suite) }
     let setting = PanelTransparency(defaults: defaults)
-    #expect(setting.percentage == 70)
-    #expect(abs(setting.opacity(reduceTransparency: false) - 0.3) < 0.001)
+    #expect(setting.percentage == 15)
+    #expect(abs(setting.opacity(reduceTransparency: false) - 0.85) < 0.001)
     for value in [0.0, 35, 70, 90] {
         setting.setPercentage(value)
         #expect(PanelTransparency(defaults: defaults).percentage == value)
@@ -16,6 +16,14 @@ import Testing
         #expect(setting.opacity(reduceTransparency: true) == 1)
         #expect(setting.percentage == value)
     }
+}
+
+@Test @MainActor func panelTransparencyPreservesExistingPreference() throws {
+    let suite = "CDKitTests.Transparency.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
+    defaults.set(70.0, forKey: PanelTransparency.defaultsKey)
+    #expect(PanelTransparency(defaults: defaults).percentage == 70)
 }
 
 @Test @MainActor func panelTransparencyRejectsInvalidChangesAndRoundsPercentages() {
@@ -34,7 +42,7 @@ import Testing
     defer { defaults.removePersistentDomain(forName: suite) }
     for invalid: Any in [-10.0, 100.0, "invalid"] {
         defaults.set(invalid, forKey: PanelTransparency.defaultsKey)
-        #expect(PanelTransparency(defaults: defaults).percentage == 70)
-        #expect(defaults.double(forKey: PanelTransparency.defaultsKey) == 70)
+        #expect(PanelTransparency(defaults: defaults).percentage == 15)
+        #expect(defaults.double(forKey: PanelTransparency.defaultsKey) == 15)
     }
 }

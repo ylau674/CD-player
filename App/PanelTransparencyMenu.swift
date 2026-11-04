@@ -10,7 +10,7 @@ struct PanelTransparencyCommands: View {
 
     var body: some View {
         Menu(Self.title) {
-            Button("Reset to 70%") {
+            Button("Reset to 15%") {
                 transparency.setPercentage(PanelTransparency.defaultPercentage)
             }
             .disabled(reduceTransparency)
