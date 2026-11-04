@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-11-04
+
 ### Changed
 
 - The player panel's background defaults to 70% transparent. View › Background
@@ -312,5 +314,6 @@ BDR-XS07U USB drive.
   - the full [behaviour specification and development log](docs/DEVELOPMENT_LOG.md).
 - A GitHub Actions workflow that runs the offline test suite on macOS.
 
-[Unreleased]: https://github.com/ylau674/CD-player/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/ylau674/CD-player/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/ylau674/CD-player/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/ylau674/CD-player/releases/tag/v1.3.3

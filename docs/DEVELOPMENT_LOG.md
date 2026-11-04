@@ -5942,3 +5942,26 @@ Validation passed:
   until the submenu is first opened. The slider remains allocated afterward.
 - The app averaged 0.00% CPU while idle in the 16-second sample. No additional
   polling or background work was added.
+
+### Version 1.3.4 (2026-11-04)
+
+The owner asked for the translucent panel to be committed, pushed and
+installed, and chose a 1.3.4 release delivered through a pull request. It is a
+patch release with one change since 1.3.3: the translucent panel described in
+this section (`21d3356`). Playback is unchanged.
+
+The 463 CDKit and 29 AudioCheck tests pass normally and under both
+AddressSanitizer and ThreadSanitizer, and all 31 native UI tests pass. These
+runs used the tree that was packaged, with the version and build number
+already changed.
+
+Version 1.3.4 (build 8) is packaged as `CDPlayer-1.3.4-macOS.zip`. The script
+confirmed the bundle identifier, the credits and the copyright string. The
+extracted app was checked for its version, macOS 14 minimum, both `arm64` and
+`x86_64` architectures, and strict signature validity with an ad-hoc
+signature and the hardened runtime. It has no home-folder paths in its
+binary. The package SHA-256 is:
+
+```text
+14b35a7c2855491384c477ac74a2f40212096653ad1c8d2122f739816d1452f5
+```
