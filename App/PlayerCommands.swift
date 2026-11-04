@@ -11,6 +11,7 @@ enum AudioLevelsCommand {
 
 struct PlayerCommands: Commands {
     @ObservedObject var player: PlayerModel
+    let transparency: PanelTransparency
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {}
@@ -72,6 +73,8 @@ struct PlayerCommands: Commands {
                 player.toggleAudioLevels()
             }
             .keyboardShortcut(AudioLevelsCommand.shortcut)
+            Divider()
+            PanelTransparencyCommands(transparency: transparency)
         }
     }
 }

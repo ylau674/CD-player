@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The player panel's background defaults to 70% transparent. View › Background
+  Transparency adjusts it live from 0% to 90% and remembers the level across
+  launches. Text, buttons, the border and audio-level meters keep their
+  existing appearance. The slider view is created only when the menu first
+  opens. Reduce transparency makes the background solid and disables the
+  adjustment without changing the saved level.
+
 ## [1.3.3] - 2026-11-04
 
 First public release. Versions before 1.3.3 were developed in a private

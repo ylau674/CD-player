@@ -77,6 +77,12 @@ hardware results and the remaining limitations are in the
   - Eject. While playing or paused it becomes Stop.
   - A power icon quits.
   - Drag anywhere on the display to move the borderless window.
+  - View › Background Transparency has a live slider from 0% (solid) to 90%
+    transparent. It starts at 70% and remembers the level across launches;
+    the display, buttons and meters stay solid. The slider view is created when
+    the menu first opens. With Reduce transparency on
+    (System Settings › Accessibility › Display), the panel stays solid and the
+    controls are disabled without changing the saved level.
 - **Simple display.**
   - Track number and elapsed time (`TRK 02` `00:12`). Before Play, after Stop
     and at the end of the disc, it shows the track count and the total time.
