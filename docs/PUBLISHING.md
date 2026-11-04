@@ -58,15 +58,22 @@ and what remains before and after making the repository public.
      "secret_scanning_push_protection": {"status": "enabled"}}}
    JSON
 
-   # main: no force pushes or deletion, and the offline tests must pass
-   # before a pull request merges. Admins (the owner) can still push.
+   # main: require the offline tests and one approval for pull requests;
+   # prevent force pushes and deletion. The owner is exempt from enforcement
+   # and can bypass these rules for their own changes.
    gh api -X PUT repos/ylau674/CD-player/branches/main/protection --input - <<'JSON'
-   {"required_status_checks": {"strict": true, "contexts": ["Offline test suite"]},
-    "enforce_admins": false,
-    "required_pull_request_reviews": null,
-    "restrictions": null,
-    "allow_force_pushes": false,
-    "allow_deletions": false}
+   {
+     "required_status_checks": {"strict": true, "contexts": ["Offline test suite"]},
+     "enforce_admins": false,
+     "required_pull_request_reviews": {
+       "dismiss_stale_reviews": true,
+       "require_code_owner_reviews": false,
+       "required_approving_review_count": 1
+     },
+     "restrictions": null,
+     "allow_force_pushes": false,
+     "allow_deletions": false
+   }
    JSON
 
    # Unused features, and topics for discovery
