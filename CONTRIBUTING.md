@@ -44,8 +44,9 @@ xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug \
 ```
 
 CI runs the offline package suite only; it has no optical drive or audio
-output. The native UI tests need a graphical login session. In the pull
-request, say which Mac, drive, disc and output you tested on, if any.
+output. The native UI tests need a graphical login session with the screen
+unlocked. In the pull request, say which Mac, drive, disc and output you
+tested on, if any.
 
 ## Privacy
 

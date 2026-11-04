@@ -91,7 +91,9 @@ bundle. Run `xcodegen generate` first. They briefly display fixture windows
 and an output menu, exercising AppKit and accessibility in-process rather
 than sending synthetic input to another app. Test screenshots are attached
 to the Xcode result bundle under `build/Logs/Test/`. A graphical login session
-is needed; no automation permission, optical drive or audio output is used.
+with the screen unlocked is needed: the output-name scrolling tests fail while
+the screen is locked, because scrolling runs only while the window is visible.
+No automation permission, optical drive or audio output is used.
 
 ## Hardware checks
 

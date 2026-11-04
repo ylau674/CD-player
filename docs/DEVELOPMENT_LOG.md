@@ -5607,6 +5607,45 @@ contains both libhdcd notices from `Packages/CDKit/Sources/HDCD/LICENSE` word
 for word (whitespace normalised) and the licence line. The second checks that
 it uses only the system font family and sets no colours.
 
+### Version 1.3.3 (2026-11-04)
+
+The 460 CDKit and 29 AudioCheck tests pass normally and under both
+AddressSanitizer and ThreadSanitizer, and all 23 native UI tests pass,
+including the two new credits tests. Two UI tests check the output name's
+scrolling, which runs only while the window is visible on screen. They failed
+while the screen was locked and passed once it was unlocked.
+
+Version 1.3.3 (build 7) is packaged as `CDPlayer-1.3.3-macOS.zip`. The script
+confirmed the bundle identifier, the credits and the copyright string. The
+extracted app was checked for its version, macOS 14 minimum, both `arm64` and
+`x86_64` architectures, and strict signature validity with an ad-hoc
+signature and the hardened runtime. It has no home-folder paths or old
+identifier in its binary. The package SHA-256 is:
+
+```text
+58264988cedbc203d608efa88b9300b8eb9a8c4533bb8920a14cf62cd234f311
+```
+
+The source was first committed to the private repository, which was then
+renamed `ylau674/CD-player-archive` with its releases 1.1.0–1.3.2 and tags
+from `v1.0.0`. A new private `ylau674/CD-player` received one parentless
+commit with the identical tree, authored and tagged as `ylau674` in UTC. Its
+offline Tests workflow passed, the uploaded asset's digest matched, and the
+release was published. In the local clone, the old branch is `archive-main`
+on remote `archive`, which fetches no tags. The old tags were deleted locally
+so that pushing tags cannot send the private history to the new repository.
+
+With no CD Player running and no `ChangedOutputRates` record pending,
+`/Applications/CDPlayer.app` 1.3.2 (build 6) was replaced by the app from the
+ZIP. The installed app reports 1.3.3 (build 7), both architectures and the new
+identifier. It is identical to the ZIP's app, passes strict code-signature
+verification with an ad-hoc signature and the hardened runtime, has CDHash
+`673ae70b926e214dcc23379f5e67bdbe68473faa`, and has no quarantine flag. The
+owner's settings (the chosen output, Decode HDCD and the window frame) were
+copied from the old preferences domain to the new one, and the old domain was
+left in place. macOS is expected to ask again for removable-volume access at
+the first Play. The app was not launched as part of the update.
+
 ## M10: SACD
 
 The draft scope, design and proposed sub-milestones are in the
