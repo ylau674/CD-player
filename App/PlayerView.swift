@@ -2,9 +2,22 @@ import AppKit
 import CDKit
 import SwiftUI
 
+struct PlayerPanelBackground: View {
+    @ObservedObject var transparency: PanelTransparency
+    let reduceTransparency: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 10)
+            .fill(Color(red: 0.04, green: 0.09, blue: 0.07)
+                .opacity(transparency.opacity(reduceTransparency: reduceTransparency)))
+    }
+}
+
 struct PlayerView: View {
     @ObservedObject var player: PlayerModel
+    @ObservedObject var transparency = PanelTransparency()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     private let displayTint = Color(red: 0.65, green: 0.95, blue: 0.75)
     private let powerTint = Color(red: 1, green: 0.09, blue: 0.18)
     private static let width: CGFloat = 426
@@ -32,7 +45,9 @@ struct PlayerView: View {
         .frame(width: Self.width)
         // Only the window sets its height. The panel fills it, with the rows pinned to its top.
         .frame(maxHeight: .infinity, alignment: .top)
-        .background(Color(red: 0.04, green: 0.09, blue: 0.07), in: RoundedRectangle(cornerRadius: 10))
+        .background {
+            PlayerPanelBackground(transparency: transparency, reduceTransparency: reduceTransparency)
+        }
         .overlay {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(.white, lineWidth: 1)

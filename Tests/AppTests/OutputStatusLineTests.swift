@@ -207,6 +207,92 @@ final class OutputStatusLineTests: XCTestCase {
         try await model.shutdown()
     }
 
+    func testOnlyThePanelFillIsTranslucentUnlessReduceTransparencyIsOn() async throws {
+        XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: false), 0.3, accuracy: 0.001)
+        XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: true), 1)
+        let model = PlayerModel.offline()
+        await model.inspectOutput()
+        let window = await playerWindow(for: model, reduceMotion: false)
+        defer { window.close() }
+        XCTAssertFalse(window.isOpaque)
+        XCTAssertEqual(window.alphaValue, 1, "Fading the whole window would fade the display too")
+        let host = try XCTUnwrap(window.contentView)
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let scale = CGFloat(bitmap.pixelsWide) / host.bounds.width
+        let transparent = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0)
+        func pixel(x: Int, y: Int) -> NSColor {
+            bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) ?? transparent
+        }
+
+        // Halfway into the left padding, at mid height, nothing but the fill is drawn.
+        let fill = pixel(x: Int(PlayerView.padding / 2 * scale), y: bitmap.pixelsHigh / 2)
+        let expected = PanelTransparency().opacity(
+            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        )
+        XCTAssertEqual(fill.alphaComponent, expected, accuracy: 0.02)
+        let border = pixel(x: 0, y: bitmap.pixelsHigh / 2)
+        XCTAssertTrue(isWhite(border) && border.alphaComponent > 0.99, "The border stays opaque")
+        var opaqueText = 0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                let color = pixel(x: x, y: y)
+                if color.alphaComponent > 0.99, isDisplayTint(color) { opaqueText += 1 }
+            }
+        }
+        // The track number and time alone draw far more fully opaque pixels than this.
+        XCTAssertGreaterThan(opaqueText, 500, "The display's text stays opaque")
+        attach(host, name: "Translucent panel")
+        try await model.shutdown()
+    }
+
+    func testTransparencySettingChangesRenderedFillLiveWithoutFadingControls() async throws {
+        let model = PlayerModel.offline()
+        let transparency = PanelTransparency()
+        await model.inspectOutput()
+        let playerWindow = PlayerWindow(player: model, transparency: transparency)
+        playerWindow.center()
+        playerWindow.orderFrontRegardless()
+        defer { playerWindow.close() }
+        let host = try XCTUnwrap(playerWindow.contentView)
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        for percentage in [0.0, 40, 70, 90] {
+            transparency.setPercentage(percentage)
+            await settle(0.1)
+            host.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            let scale = CGFloat(bitmap.pixelsWide) / host.bounds.width
+            let fill = try XCTUnwrap(bitmap.colorAt(
+                x: Int(PlayerView.padding / 2 * scale), y: bitmap.pixelsHigh / 2
+            ))
+            XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 1 - percentage / 100, accuracy: 0.02)
+            let border = try XCTUnwrap(bitmap.colorAt(x: 0, y: bitmap.pixelsHigh / 2))
+            XCTAssertEqual(border.alphaComponent, 1, accuracy: 0.01)
+        }
+        try await model.shutdown()
+    }
+
+    func testPanelBackgroundRendersBothAccessibilitySettings() async throws {
+        let transparency = PanelTransparency()
+        for reduced in [false, true] {
+            let host = NSHostingView(rootView: PlayerPanelBackground(
+                transparency: transparency, reduceTransparency: reduced
+            ))
+            host.frame.size = NSSize(width: 100, height: 100)
+            let window = window(for: host)
+            defer { window.close() }
+            for percentage in [0.0, 40, 70, 90] {
+                transparency.setPercentage(percentage)
+                await settle(0.1)
+                let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+                host.cacheDisplay(in: host.bounds, to: bitmap)
+                let fill = try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2))
+                XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 1 - percentage / 100, accuracy: 0.02)
+            }
+        }
+    }
+
     func testAudioLevelsExtendTheWindowDownwardWithTheDisplayFixed() async throws {
         let model = PlayerModel(engine: UIEngine(), automaticallyMonitor: false, outputRateControl: UIRateControl(),
                                 outputSelectionStore: UISelectionStore())
@@ -853,8 +939,12 @@ final class OutputStatusLineTests: XCTestCase {
     ) {
         let column = middleColumn(in: view)
         XCTAssertEqual(column.first.map(isWhite), true, "\(phase): display top border", file: file, line: line)
-        // Mid-animation the window's height can end partway through the last pixel row.
-        XCTAssertTrue(column.dropLast().allSatisfy { $0.alphaComponent > 0.99 }, "\(phase): gap",
+        // Mid-animation the window's height can end partway through the last pixel row. A gap shows nothing,
+        // where the panel's fill is at least its translucent opacity.
+        let panelAlpha = PanelTransparency().opacity(
+            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        )
+        XCTAssertTrue(column.dropLast().allSatisfy { $0.alphaComponent > panelAlpha - 0.02 }, "\(phase): gap",
                       file: file, line: line)
         if settled {
             XCTAssertEqual(column.last.map(isWhite), true, "\(phase): panel bottom border", file: file, line: line)
@@ -1146,4 +1236,44 @@ private final class UILevelSource: AudioLevelSource, @unchecked Sendable {
     func eject(media: OpticalMedia, from driveID: UInt64) async throws {
         XCTFail("UI fixtures must never eject")
     }
+}
+
+private extension PlayerModel {
+    static func offline() -> PlayerModel {
+        PlayerModel(
+            engine: UIEngine(), audioLevelSource: UILevelSource(), automaticallyMonitor: false,
+            discOpener: UIDiscOpener(), makeDiscEngine: { _ in
+                XCTFail("Appearance tests must not open a disc engine")
+                return UIEngine()
+            },
+            outputRateControl: UIRateControl(), outputSelectionStore: UISelectionStore(),
+            hdcdDecodePreferenceStore: UIHDCDPreference(), volumeMirror: UIVolumeMirror(),
+            sleepPrevention: UISleepPrevention(), powerMonitor: UIPowerMonitor()
+        )
+    }
+}
+
+private struct UIDiscOpener: DiscOpener {
+    struct UnexpectedDiscAccess: Error {}
+    func open(_ media: OpticalMedia, driveID: UInt64) throws -> any CDSectorSource {
+        XCTFail("Appearance tests must not open a disc")
+        throw UnexpectedDiscAccess()
+    }
+}
+
+@MainActor private final class UIHDCDPreference: HDCDDecodePreferenceStore {
+    var isEnabled = true
+    func save(isEnabled: Bool) { self.isEnabled = isEnabled }
+}
+
+private final class UIVolumeMirror: VolumeMirroring {
+    func mirror(_ pair: VolumeMirrorPair?) {}
+}
+
+@MainActor private final class UISleepPrevention: SleepPreventing {
+    func setActive(_ active: Bool) {}
+}
+
+private struct UIPowerMonitor: SystemPowerMonitoring {
+    func events() -> AsyncStream<SystemPowerEvent> { AsyncStream { $0.finish() } }
 }

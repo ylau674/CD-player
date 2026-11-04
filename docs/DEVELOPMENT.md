@@ -56,7 +56,7 @@ is signed ad hoc (`CODE_SIGN_IDENTITY "-"`) on every machine.
 | ThreadSanitizer | `swift test --package-path Packages/CDKit --sanitize=thread` |
 | HDCD decoder cross-check (downloads temporary FFmpeg FATE sample) | `./Tools/check-hdcd-ffmpeg.sh` |
 | Synthetic Peak Extend / FFmpeg cross-check | `./Tools/check-hdcd-peak-extend.sh` |
-| Native UI tests (23, no audio or disc access) | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test` |
+| Native UI tests (31, no audio or disc access) | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test` |
 | Generate the Xcode project | `xcodegen generate` |
 | Debug app | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build` |
 | Release ZIP | `./Tools/package-release.sh` |
@@ -516,6 +516,7 @@ subtasks in build order with explicit prerequisites. For each subtask:
 | Meter CPU | Version 1.3.1: profiled installed 1.3.0, then moved the meter bars out of SwiftUI into an AppKit view on a plain timer; Release CPU with the meters shown fell from 12.5% to 4.2%. |
 | Memory, OUTPUT LOST, meter layers | Version 1.3.2: playback returns its read-ahead memory to macOS when not playing; a missing saved output is replaced by the fallback on Play, so `OUTPUT LOST` no longer repeats at launch; each meter segment is a Core Animation layer, taking Release CPU with the meters shown from 3.9% to 2.7%. |
 | Public release | Version 1.3.3: Apache-2.0 licence, About-panel credits with libhdcd's BSD notices, bundle identifier `io.github.ylau674.CDPlayer`, contributing and security files, personal data redacted, published with fresh history. |
+| Translucent panel | Version 1.3.4: the panel's background is 70% transparent by default, adjustable from 0% to 90% with a View menu slider and remembered; text, buttons and meters stay solid. |
 
 The [development log](DEVELOPMENT_LOG.md) holds the full detail and evidence
 for every row.

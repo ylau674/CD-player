@@ -21,6 +21,7 @@ final class PlayerWindow: NSWindow {
 
     init(
         player: PlayerModel,
+        transparency: PanelTransparency = PanelTransparency(),
         reduceMotion: @escaping @MainActor () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
         isMeterWindowVisible: @escaping @MainActor (NSWindow) -> Bool = { window in
             window.isVisible && !window.isMiniaturized && !NSApplication.shared.isHidden &&
@@ -29,7 +30,7 @@ final class PlayerWindow: NSWindow {
                 }
         }
     ) {
-        let content = PlayerHostingView(rootView: PlayerView(player: player))
+        let content = PlayerHostingView(rootView: PlayerView(player: player, transparency: transparency))
         // Measured first: without its intrinsic size the hosting view no longer reports a fit.
         let closedSize = content.fittingSize
         // The window alone sets its height as the audio levels show or hide. Fitting the window to the
@@ -220,14 +221,17 @@ final class PlayerHostingView: NSHostingView<PlayerView> {
 @MainActor
 final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     let player = PlayerModel(opticalService: MacOpticalDriveService())
+    let transparency = PanelTransparency(defaults: .standard)
     private var window: PlayerWindow?
+    private var transparencyMenu: PanelTransparencyMenuController?
     private var terminating = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        transparencyMenu = PanelTransparencyMenuController(transparency: transparency)
         player.startOpticalMonitoring()
         player.startOutputMonitoring()
         player.startPowerMonitoring()
-        let window = PlayerWindow(player: player)
+        let window = PlayerWindow(player: player, transparency: transparency)
         self.window = window
         window.center()
         window.makeKeyAndOrderFront(nil)

@@ -9,7 +9,7 @@ struct CDPlayerApp: App {
     var body: some Scene {
         Settings { EmptyView() }
             .commands {
-                PlayerCommands(player: appDelegate.player)
+                PlayerCommands(player: appDelegate.player, transparency: appDelegate.transparency)
             }
     }
 }

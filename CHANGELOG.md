@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-11-04
+
+### Changed
+
+- The player panel's background defaults to 70% transparent. View › Background
+  Transparency adjusts it live from 0% to 90% and remembers the level across
+  launches. Text, buttons, the border and audio-level meters keep their
+  existing appearance. The slider view is created only when the menu first
+  opens. Reduce transparency makes the background solid and disables the
+  adjustment without changing the saved level.
+
 ## [1.3.3] - 2026-11-04
 
 First public release. Versions before 1.3.3 were developed in a private
@@ -303,5 +314,6 @@ BDR-XS07U USB drive.
   - the full [behaviour specification and development log](docs/DEVELOPMENT_LOG.md).
 - A GitHub Actions workflow that runs the offline test suite on macOS.
 
-[Unreleased]: https://github.com/ylau674/CD-player/compare/v1.3.3...HEAD
+[Unreleased]: https://github.com/ylau674/CD-player/compare/v1.3.4...HEAD
+[1.3.4]: https://github.com/ylau674/CD-player/compare/v1.3.3...v1.3.4
 [1.3.3]: https://github.com/ylau674/CD-player/releases/tag/v1.3.3
