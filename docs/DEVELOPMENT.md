@@ -56,7 +56,7 @@ is signed ad hoc (`CODE_SIGN_IDENTITY "-"`) on every machine.
 | ThreadSanitizer | `swift test --package-path Packages/CDKit --sanitize=thread` |
 | HDCD decoder cross-check (downloads temporary FFmpeg FATE sample) | `./Tools/check-hdcd-ffmpeg.sh` |
 | Synthetic Peak Extend / FFmpeg cross-check | `./Tools/check-hdcd-peak-extend.sh` |
-| Native UI tests (23, no audio or disc access) | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test` |
+| Native UI tests (31, no audio or disc access) | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test` |
 | Generate the Xcode project | `xcodegen generate` |
 | Debug app | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build` |
 | Release ZIP | `./Tools/package-release.sh` |
