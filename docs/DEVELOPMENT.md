@@ -16,7 +16,8 @@ the release steps, the process the project followed, and the open backlog.
 
    Version 1.0.0 was developed with Xcode 27.1 (Swift 6.4) on macOS 27.2.
    The offline suite also passes in CI with Xcode 26.6 (Swift 6.3.3). The
-   package and app use the Swift 6 language mode and target macOS 14.
+   package and app use the Swift 6 language mode and target macOS 14. The app
+   needs Xcode 26 or later for the macOS 26 SDK's `NSGlassEffectView`.
 2. Install [Homebrew](https://brew.sh) if necessary, then **XcodeGen**:
 
    ```sh
@@ -56,7 +57,7 @@ is signed ad hoc (`CODE_SIGN_IDENTITY "-"`) on every machine.
 | ThreadSanitizer | `swift test --package-path Packages/CDKit --sanitize=thread` |
 | HDCD decoder cross-check (downloads temporary FFmpeg FATE sample) | `./Tools/check-hdcd-ffmpeg.sh` |
 | Synthetic Peak Extend / FFmpeg cross-check | `./Tools/check-hdcd-peak-extend.sh` |
-| Native UI tests (31, no audio or disc access) | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test` |
+| Native UI tests (38, no audio or disc access) | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test` |
 | Generate the Xcode project | `xcodegen generate` |
 | Debug app | `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build` |
 | Release ZIP | `./Tools/package-release.sh` |
@@ -517,6 +518,7 @@ subtasks in build order with explicit prerequisites. For each subtask:
 | Memory, OUTPUT LOST, meter layers | Version 1.3.2: playback returns its read-ahead memory to macOS when not playing; a missing saved output is replaced by the fallback on Play, so `OUTPUT LOST` no longer repeats at launch; each meter segment is a Core Animation layer, taking Release CPU with the meters shown from 3.9% to 2.7%. |
 | Public release | Version 1.3.3: Apache-2.0 licence, About-panel credits with libhdcd's BSD notices, bundle identifier `io.github.ylau674.CDPlayer`, contributing and security files, personal data redacted, published with fresh history. |
 | Translucent panel | Version 1.3.5: the panel's background is adjustable from 0% to 90% with a View menu slider and remembered; new installations start at 15% transparency; text, buttons and meters stay solid. |
+| Liquid Glass panel | Unreleased: on macOS 26 or later the panel is clear Liquid Glass in system colours, without the border; View > Appearance remembers Follow System / Light / Dark for the player window; the transparency slider independently sets the glass tint; macOS 14 and 15 keep the dark green panel. |
 
 The [development log](DEVELOPMENT_LOG.md) holds the full detail and evidence
 for every row.

@@ -25,6 +25,10 @@ struct OutputStatusLine: NSViewRepresentable {
         var selectedID: OutputChoice.ID
         /// The widest the name may be shown; a longer name scrolls within this width.
         var maximumNameWidth: Double = .infinity
+        /// The normal status, the name and its indicator.
+        var tint: NSColor = PlayerPalette.classic.status
+        /// The name and its indicator while the output cannot be changed.
+        var dimmedTint: NSColor = PlayerPalette.classic.dimmedStatus
     }
 
     let content: Content
@@ -46,7 +50,6 @@ struct OutputStatusLine: NSViewRepresentable {
 final class OutputStatusLineView: NSView, NSViewToolTipOwner {
     static let font = NSFont.monospacedSystemFont(ofSize: 10, weight: .medium)
     static let lineHeight = ceil(font.ascender - font.descender + font.leading)
-    static let tint = NSColor(srgbRed: 0.65, green: 0.95, blue: 0.75, alpha: 1)
     static let scrollKey = "scroll"
 
     var select: (@MainActor (OutputChoice.ID) -> Void)?
@@ -127,7 +130,13 @@ final class OutputStatusLineView: NSView, NSViewToolTipOwner {
             )
         }
         viewDidChangeBackingProperties()
+        apply()
         restartScrolling()
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        apply()
     }
 
     @objc private func occlusionChanged() { restartScrolling() }
@@ -148,12 +157,14 @@ final class OutputStatusLineView: NSView, NSViewToolTipOwner {
             maximumNameWidth: content.maximumNameWidth, reduceMotion: reduceMotion, measure: Self.measure
         )
         self.line = line
-        let statusColor: NSColor = switch content.tone {
-        case .normal: Self.tint
+        // A text layer keeps a colour as resolved now; the view redoes this when its appearance changes.
+        let toneColor: NSColor = switch content.tone {
+        case .normal: content.tint
         case .warning: .systemOrange
         case .error: .systemRed
         }
-        let nameColor = content.outputEnabled ? Self.tint : Self.tint.withAlphaComponent(0.45)
+        let statusColor = toneColor.resolved(for: layerColorAppearance)
+        let nameColor = (content.outputEnabled ? content.tint : content.dimmedTint).resolved(for: layerColorAppearance)
         let y = ((bounds.height - Self.lineHeight) / 2).rounded(.down)
         CATransaction.begin()
         CATransaction.setDisableActions(true)

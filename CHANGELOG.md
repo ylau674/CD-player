@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- View › Appearance on macOS 26 or later lets the Liquid Glass player window
+  follow the system appearance (the default), or stay Light or Dark. The
+  selection applies immediately and is remembered across launches, without
+  changing macOS, other windows, background transparency or playback.
+
+### Changed
+
+- The track number and elapsed-time readout use Helvetica Oblique.
+- On macOS 26 or later, the player panel uses Liquid Glass in the clear
+  style. The display, status line, transport symbols, button outlines and
+  audio-level meters use system colours that follow Light and Dark Mode, the
+  power button and peak hold use the system red, and the white border is
+  removed. View › Background Transparency now sets how strongly the glass is
+  tinted toward the window background, from fully tinted at 0% to almost
+  clear at 90%. With Reduce transparency on, the panel is a solid window
+  background. macOS 14 and 15 keep the dark green panel unchanged.
+- Building the app now requires Xcode 26 or later (macOS 26 SDK). The
+  deployment target stays macOS 14.
+
 ## [1.3.5] - 2026-11-05
 
 ### Changed

@@ -34,6 +34,7 @@ targets:
     sources:
       - Tests/AppTests
       - App/AudioLevelBars.swift
+      - App/PanelStyle.swift
       - App/PlayerView.swift
       - App/PlayerCommands.swift
       - App/PanelTransparencyMenu.swift

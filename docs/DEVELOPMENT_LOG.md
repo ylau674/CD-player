@@ -6022,3 +6022,178 @@ Validation passed:
 - `xcodegen generate`, then
   `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
   all 31 native UI tests.
+
+## Liquid Glass panel (2026-11-12)
+
+**Request.** The owner asked for the window to follow Apple's Liquid Glass
+design. A standalone mock-up showed four panels on real glass. The owner
+chose plain system glass in the clear style: it follows Light and Dark Mode
+with system text colours, keeps the outlined transport buttons and drops the
+white border. The Background Transparency slider sets how strongly the glass
+is tinted.
+
+### Change
+
+Liquid Glass needs macOS 26, and the app still targets macOS 14.
+`PanelStyle.current` (`App/PanelStyle.swift`) is `.glass` on macOS 26 or
+later and `.classic` otherwise. macOS 14 and 15 keep the dark green panel
+exactly as before.
+
+- **Window.** On glass, `PlayerWindow` makes an `NSGlassEffectView` (clear
+  style, 16 pt corner radius) the window's content view and the SwiftUI
+  hosting view its `contentView`, sized by an autoresizing mask. The window
+  stays borderless, non-opaque, clear and shadowed; the audio-level resize is
+  unchanged, and the glass follows it.
+- **Transparency.** The slider sets the glass `tintColor` to
+  `windowBackgroundColor` with its opacity scaled to 1 − percentage/100: 0%
+  tints fully, 90% leaves the glass almost clear. The tint is a dynamic
+  colour, so it follows Light and Dark Mode on screen without a new value.
+  The saved setting, its 15% default, the menu and Reduce transparency
+  handling are unchanged.
+- **Panel.** On glass, `PlayerPanelBackground` draws nothing; with Reduce
+  transparency it fills a continuous 16 pt rounded rectangle with
+  `windowBackgroundColor`, opaque. The white border is drawn only in classic.
+- **Colours.** Each style has a `PlayerPalette`. Glass uses `labelColor` for
+  the display, transport symbols, rate icon and lit meter segments,
+  `secondaryLabelColor` for the status line, `systemRed` for the power button
+  and peak hold, and scaled `labelColor` for the outlines and unlit segments.
+  `TransportButton`, `AudioLevelBars` and `OutputStatusLine` now take
+  `NSColor`s from the palette instead of fixed colours.
+
+Three AppKit details shaped the code:
+
+- `withAlphaComponent(_:)` on a system colour fixes it to the current
+  appearance. `scalingAlpha(by:)` wraps the colour in a dynamic provider
+  instead. The palettes are static, because the views skip updates with
+  equal colours and a dynamic colour is equal only to itself.
+- Core Animation layers and `CATextLayer` strings keep the colour they were
+  given. The meter segments and the status line resolve their colours on
+  creation, when moved to a window and when the effective appearance changes,
+  and recolour only what changed.
+- Inside glass, SwiftUI gives the AppKit views it hosts the vibrant
+  appearances. Their colours expect vibrancy blending, which plain layers do
+  not do: `secondaryLabelColor` resolves to an opaque mid grey (0.50 in
+  Light, 0.49 in Dark). The layers therefore resolve colours in the window's
+  appearance (`layerColorAppearance`), which also keeps the high-contrast
+  variants that `bestMatch(from:)` would map away.
+
+Probes confirmed that `NSGlassEffectView` keeps hit-testing on its content:
+the panel's padding reaches the hosting view, so dragging still moves the
+window, and the buttons and output selector receive their clicks. The
+mock-up's Dark Mode preview was inaccurate, because it scaled the tint with
+`withAlphaComponent`; the app uses the dynamic tint.
+
+### Visual check
+
+The Debug app was launched without Play, with no drive attached (`NO
+DRIVE`), over a white web page. Light Mode at the saved 50% shows white-tinted
+glass with dark text, grey status and outlines, red power and no border. Dark
+Mode was checked by setting only that Debug process's `NSApp.appearance` to
+Dark Aqua with `lldb`; the system setting was not changed. At 50% the glass
+is mid grey over the white page. The track and time read well, but the status
+line, symbols and outlines have low contrast. At 20% (saved value changed
+temporarily, then restored to 50%) the panel is dark grey and everything is
+legible. Clear glass over bright content needs this dimming, which the slider
+provides. The README screenshot still shows the classic panel.
+
+### Tests
+
+- `testGlassStatusLineFollowsTheAppearanceWithoutLayout` runs on every
+  supported macOS. It switches a status line between Dark and Light without
+  layout, and checks the status, name and indicator colours each time.
+- `testPanelBackgroundRendersBothAccessibilitySettings` now covers both
+  styles. Glass draws nothing unless Reduce transparency is on, and then
+  draws an opaque fill.
+- These three skip before macOS 26:
+  - `testGlassHostsThePlayerOnMacOS26` checks the glass host, style, radius,
+    window flags and width. It hit-tests the padding, the status line and a
+    button, and checks that the glass and player follow the meters' resize.
+  - `testGlassTintFollowsTransparencyAndAppearance` checks the tint's opacity
+    at 15%, 0%, 40%, 70% and 90%, and its colour in Light and Dark.
+  - `testGlassPanelUsesSystemColoursInLightAndDarkMode` switches Light, Dark
+    and Light. It checks the status and unlit-segment colours and the absent
+    fill and border, and finds the label-coloured text, with no classic mint
+    pixels.
+- Existing classic tests pass `.classic` explicitly.
+
+Mutation runs confirmed the tests:
+
+- A `withAlphaComponent` tint failed the tint test.
+- Dropping the meters' appearance update failed the system-colour test.
+- Dropping the status line's appearance update failed the status-line test.
+  Inside SwiftUI, a layout pass hid this, which is why that test drives the
+  view directly.
+
+Validation passed:
+
+- `swift test --package-path Packages/CDKit`: 464 CDKit and 29 AudioCheck
+  tests. CDKit is unchanged.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 35 native UI tests. In one earlier run, made while the CDKit suite ran
+  at the same time,
+  `testSliderDragReleasedOutsideOpenMenuEndsAndNextDragStillWorks` missed its
+  timed menu steps. It passed alone and in the full re-run.
+- `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build`:
+  Debug app build succeeded without Swift warnings.
+
+No live hardware checks, playback or installation were performed.
+
+### Window appearance selector (2026-11-12)
+
+The owner requested a menu option for dark Liquid Glass and chose a
+View > Appearance submenu with Follow System, Light and Dark. Follow System
+is the default. The choice applies immediately, is remembered across
+launches and affects only the player window. The transparency slider remains
+independent. The menu is available only on macOS 26 or later; the classic
+panel on macOS 14 and 15 stays unchanged.
+
+`PanelAppearance` in CDKit follows the existing `PanelTransparency` pattern:
+an observable main-actor model, an optional defaults store for offline tests,
+and logging and repair of invalid saved values. Its defaults key is
+`PanelAppearance`, containing `system`, `light` or `dark`. Selecting the
+current value does not publish another change.
+
+The app delegate shares the model with `PanelAppearanceCommands` and
+`PlayerWindow`. The native SwiftUI picker displays a checkmark beside the
+current selection. The glass window subscribes to the setting and changes
+only its own `appearance`: Aqua for Light, Dark Aqua for Dark, and `nil` for
+Follow System so later system changes remain live. It does not set
+`NSApplication.appearance` or change any system preference. The existing
+dynamic tint and colour updates handle the new appearance, including the
+solid fill when Reduce transparency is enabled. Playback, transparency and
+window geometry are untouched.
+
+Offline coverage:
+
+- Three CDKit tests cover the default, persistence and restoration of all
+  selections, unchanged transparency, malformed saved values and duplicate
+  notifications.
+- Three native UI tests exercise the real submenu actions and checkmarks,
+  initial saved Dark appearance, immediate window updates, inherited
+  appearance changes, isolation from other windows and the classic panel,
+  and unchanged playback state, transparency and geometry.
+- The existing Light/Dark pixel test now changes `PanelAppearance` rather
+  than setting the window appearance directly, so it verifies the new path
+  through the rendered text, status line and meter colours.
+
+Validation passed:
+
+- `swift test --package-path Packages/CDKit`: 467 CDKit and 29 AudioCheck tests.
+- `swift test --package-path Packages/CDKit --sanitize=address`: the same suites.
+- `swift test --package-path Packages/CDKit --sanitize=thread`: the same suites.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 38 native UI tests.
+- `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build`:
+  Debug app build succeeded.
+
+No playback or installation was performed.
+
+### Helvetica Oblique readout (2026-11-12)
+
+The owner asked to change the track number and elapsed-time typeface to
+Helvetica Oblique. The two readouts now use the `Helvetica-Oblique`
+PostScript face at the existing 38 pt size. The `TRK` label and all other
+text retain their existing fonts; the readouts remain monospaced-digit
+aligned. No playback behavior or layout dimensions were changed.

@@ -6,6 +6,8 @@ import SwiftUI
 
 @MainActor
 final class PlayerWindow: NSWindow {
+    /// The player, which is the content view or, with Liquid Glass, the glass's content.
+    let hostingView: PlayerHostingView
     private let player: PlayerModel
     private let reduceMotion: @MainActor () -> Bool
     private let isMeterWindowVisible: @MainActor (NSWindow) -> Bool
@@ -13,6 +15,8 @@ final class PlayerWindow: NSWindow {
     private let closedHeight: CGFloat
     private var audioLevelsSubscription: AnyCancellable?
     private var resizeSubscription: AnyCancellable?
+    private var glassTintSubscription: AnyCancellable?
+    private var appearanceSubscription: AnyCancellable?
     private var visibilitySubscriptions: [AnyCancellable] = []
     private var audioLevelsVisible = false
     /// Identifies the latest show or hide, so a resize or fade that a later toggle replaced cannot report
@@ -22,6 +26,8 @@ final class PlayerWindow: NSWindow {
     init(
         player: PlayerModel,
         transparency: PanelTransparency = PanelTransparency(),
+        panelStyle: PanelStyle = .current,
+        panelAppearance: PanelAppearance = PanelAppearance(),
         reduceMotion: @escaping @MainActor () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
         isMeterWindowVisible: @escaping @MainActor (NSWindow) -> Bool = { window in
             window.isVisible && !window.isMiniaturized && !NSApplication.shared.isHidden &&
@@ -30,12 +36,15 @@ final class PlayerWindow: NSWindow {
                 }
         }
     ) {
-        let content = PlayerHostingView(rootView: PlayerView(player: player, transparency: transparency))
+        let content = PlayerHostingView(
+            rootView: PlayerView(player: player, transparency: transparency, panelStyle: panelStyle)
+        )
         // Measured first: without its intrinsic size the hosting view no longer reports a fit.
         let closedSize = content.fittingSize
         // The window alone sets its height as the audio levels show or hide. Fitting the window to the
         // content as well made the two fight, which clipped the display and moved the window.
         content.sizingOptions = [.minSize]
+        hostingView = content
         self.player = player
         self.reduceMotion = reduceMotion
         self.isMeterWindowVisible = isMeterWindowVisible
@@ -46,7 +55,33 @@ final class PlayerWindow: NSWindow {
             backing: .buffered, defer: false
         )
         title = "CD Player"
-        contentView = content
+        if panelStyle == .glass, #available(macOS 26, *) {
+            let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: closedSize))
+            glass.style = .clear
+            glass.cornerRadius = panelStyle.cornerRadius
+            content.frame = glass.bounds
+            content.autoresizingMask = [.width, .height]
+            glass.contentView = content
+            contentView = glass
+            // The setting tints the glass toward the window background, as it sets the classic panel's opacity.
+            // `@Published` sends the new value before storing it, so the tint uses the value it is given.
+            glassTintSubscription = transparency.$percentage.sink { [weak glass] percentage in
+                MainActor.assumeIsolated {
+                    glass?.tintColor = PlayerPalette.glass.panel.scalingAlpha(by: 1 - percentage / 100)
+                }
+            }
+            appearanceSubscription = panelAppearance.$selection.sink { [weak self] selection in
+                MainActor.assumeIsolated {
+                    self?.appearance = switch selection {
+                    case .system: nil
+                    case .light: NSAppearance(named: .aqua)
+                    case .dark: NSAppearance(named: .darkAqua)
+                    }
+                }
+            }
+        } else {
+            contentView = content
+        }
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
@@ -222,6 +257,7 @@ final class PlayerHostingView: NSHostingView<PlayerView> {
 final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
     let player = PlayerModel(opticalService: MacOpticalDriveService())
     let transparency = PanelTransparency(defaults: .standard)
+    let appearance = PanelAppearance(defaults: .standard)
     private var window: PlayerWindow?
     private var transparencyMenu: PanelTransparencyMenuController?
     private var terminating = false
@@ -231,7 +267,7 @@ final class PlayerAppDelegate: NSObject, NSApplicationDelegate {
         player.startOpticalMonitoring()
         player.startOutputMonitoring()
         player.startPowerMonitoring()
-        let window = PlayerWindow(player: player, transparency: transparency)
+        let window = PlayerWindow(player: player, transparency: transparency, panelAppearance: appearance)
         self.window = window
         window.center()
         window.makeKeyAndOrderFront(nil)

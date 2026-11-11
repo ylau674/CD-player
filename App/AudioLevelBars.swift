@@ -6,14 +6,12 @@ import SwiftUI
 struct AudioLevelBars: NSViewRepresentable {
     let isLive: Bool
     let read: @MainActor () -> AudioLevelMeter.Reading
-    let tint: Color
-    let peakHoldTint: Color
+    let lit: NSColor
+    let unlit: NSColor
+    let peakHold: NSColor
 
     func makeNSView(context: Context) -> AudioLevelBarsView {
-        AudioLevelBarsView(
-            read: read,
-            lit: NSColor(tint), unlit: NSColor(tint.opacity(0.18)), peakHold: NSColor(peakHoldTint)
-        )
+        AudioLevelBarsView(read: read, lit: lit, unlit: unlit, peakHold: peakHold)
     }
 
     func updateNSView(_ view: AudioLevelBarsView, context: Context) {
@@ -40,9 +38,9 @@ final class AudioLevelBarsView: NSView {
         "backgroundColor": NSNull(), "bounds": NSNull(), "position": NSNull()
     ]
 
-    private let lit: CGColor
-    private let unlit: CGColor
-    private let peakHold: CGColor
+    private let colors: [AudioLevelMeter.SegmentState: NSColor]
+    /// `colors` as drawn in the view's appearance. Layers cannot follow a system colour by themselves.
+    private var resolvedColors: [AudioLevelMeter.SegmentState: CGColor]
     /// The L row's segments, then the R row's, each from -40 dB up.
     let segmentLayers: [CALayer]
     private var shownStates: [AudioLevelMeter.SegmentState]
@@ -50,13 +48,11 @@ final class AudioLevelBarsView: NSView {
     private(set) var drawnReadings = 0
 
     init(read: @escaping @MainActor () -> AudioLevelMeter.Reading, lit: NSColor, unlit: NSColor, peakHold: NSColor) {
-        self.lit = lit.cgColor
-        self.unlit = unlit.cgColor
-        self.peakHold = peakHold.cgColor
+        colors = [.lit: lit, .unlit: unlit, .peakHold: peakHold]
+        resolvedColors = [:]
         shownStates = Array(repeating: .unlit, count: 2 * Self.segmentCount)
         segmentLayers = shownStates.map { _ in
             let layer = CALayer()
-            layer.backgroundColor = unlit.cgColor
             layer.cornerRadius = 1
             layer.actions = Self.noAnimations
             return layer
@@ -64,6 +60,7 @@ final class AudioLevelBarsView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layerContentsRedrawPolicy = .never
+        resolveColors()
         driver = AudioLevelMeterDriver(read: read) { [weak self] reading in
             self?.show(reading)
         }
@@ -98,6 +95,26 @@ final class AudioLevelBarsView: NSView {
         layoutSegments()
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        resolveColors()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        resolveColors()
+    }
+
+    /// Recolours every segment, but only when its colour in the current appearance has changed.
+    private func resolveColors() {
+        let resolved = colors.mapValues { $0.resolved(for: layerColorAppearance).cgColor }
+        guard resolved != resolvedColors else { return }
+        resolvedColors = resolved
+        for (layer, state) in zip(segmentLayers, shownStates) {
+            layer.backgroundColor = resolved[state]
+        }
+    }
+
     private func layoutSegments() {
         let count = Self.segmentCount
         let segmentWidth = (bounds.width - CGFloat(count - 1) * Self.segmentSpacing) / CGFloat(count)
@@ -125,11 +142,7 @@ final class AudioLevelBarsView: NSView {
                 let state = channel.state(ofSegment: segment)
                 guard state != shownStates[index] else { continue }
                 shownStates[index] = state
-                segmentLayers[index].backgroundColor = switch state {
-                case .lit: lit
-                case .unlit: unlit
-                case .peakHold: peakHold
-                }
+                segmentLayers[index].backgroundColor = resolvedColors[state]
             }
         }
     }

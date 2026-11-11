@@ -31,10 +31,18 @@ See the [changelog](CHANGELOG.md), [audio-output validation record](docs/AUDIO_O
 [HDCD validation record](docs/HDCD_ROADMAP.md)
 and [known limitations](#known-limitations).
 
-The player panel's background starts at 15% transparency on a new installation
-(existing saved settings are preserved). Adjust it from solid to 90% with the
-slider in View › Background Transparency; the level is remembered across
-launches. The display, buttons and meters stay solid. Playback is unchanged.
+On macOS 26 or later, the player panel is Liquid Glass in the clear style,
+with system text colours and no border. View › Appearance offers Follow System
+(the default), Light and Dark, remembered across launches. The choice affects
+only the player window, not macOS. View › Background Transparency independently
+sets how strongly the glass is tinted toward the
+window background. macOS 14 and 15 keep the dark green panel, whose background
+the same slider makes transparent. The screenshot above shows that dark green
+panel. Playback is unchanged.
+
+The panel starts at 15% transparency on a new installation (existing saved
+settings are preserved). The slider goes from solid to 90%, and the level is
+remembered across launches. The display, buttons and meters stay solid.
 
 Version 1.3.3 is the first public release, under the Apache License 2.0. The
 About window now lists the licence and the libhdcd credits. The bundle
@@ -82,12 +90,25 @@ hardware results and the remaining limitations are in the
   - Eject. While playing or paused it becomes Stop.
   - A power icon quits.
   - Drag anywhere on the display to move the borderless window.
+  - On macOS 26 or later, the panel is clear Liquid Glass. Its text, symbols,
+    outlines and meters use system colours that follow Light and Dark Mode,
+    and it has no border. On macOS 14 and 15 it is a dark green panel with a
+    white border and pale green text.
+  - View › Appearance on macOS 26 or later offers Follow System, Light and
+    Dark. Follow System is the default; Light and Dark override only the
+    player window. The choice applies immediately and is remembered across
+    launches, without changing the background transparency or playback.
   - View › Background Transparency has a live slider from 0% (solid) to 90%
-    transparent. A new installation starts at 15% and remembers the level
+    transparent. On Liquid Glass, 0% tints the glass fully toward the window
+    background and 90% leaves it almost clear; lower values keep the text
+    legible over bright or busy windows. On the dark green panel, it sets the
+    fill's opacity. A new installation starts at 15% and remembers the level
     across launches. The display, buttons and meters stay solid. The slider
     view is created when the menu first opens. With Reduce transparency on
-    (System Settings › Accessibility › Display), the panel stays solid and the
-    controls are disabled without changing the saved level.
+    (System Settings › Accessibility › Display), the panel is a solid fill
+    (the selected appearance's window background colour on macOS 26) and the
+    transparency controls are disabled without changing the saved level.
+    The Appearance menu remains available.
 - **Simple display.**
   - Track number and elapsed time (`TRK 02` `00:12`). Before Play, after Stop
     and at the end of the disc, it shows the track count and the total time.
@@ -176,7 +197,8 @@ hardware results and the remaining limitations are in the
 - An optical drive that can read audio CDs.
 - macOS must allow the logged-in user to read the drive's raw device. The app
   does not work around managed removable-media policy.
-- To build: Xcode with the macOS SDK (Swift 6 language mode) and
+- To build: Xcode 26 or later with the macOS 26 SDK (Swift 6 language mode),
+  which the Liquid Glass panel needs, and
   [XcodeGen](https://github.com/yonaskolb/XcodeGen). No third-party packages
   need installation; the only vendored dependency is the pinned BSD-licensed
   [libhdcd source](Packages/CDKit/Sources/HDCD/LICENSE).

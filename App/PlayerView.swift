@@ -5,21 +5,33 @@ import SwiftUI
 struct PlayerPanelBackground: View {
     @ObservedObject var transparency: PanelTransparency
     let reduceTransparency: Bool
+    let style: PanelStyle
 
     var body: some View {
-        RoundedRectangle(cornerRadius: 10)
-            .fill(Color(red: 0.04, green: 0.09, blue: 0.07)
-                .opacity(transparency.opacity(reduceTransparency: reduceTransparency)))
+        switch style {
+        case .classic:
+            RoundedRectangle(cornerRadius: style.cornerRadius)
+                .fill(Color(nsColor: style.palette.panel)
+                    .opacity(transparency.opacity(reduceTransparency: reduceTransparency)))
+        case .glass:
+            // The window's glass draws the panel and applies the transparency setting as its tint.
+            if reduceTransparency {
+                RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
+                    .fill(Color(nsColor: style.palette.panel))
+            } else {
+                Color.clear
+            }
+        }
     }
 }
 
 struct PlayerView: View {
     @ObservedObject var player: PlayerModel
     @ObservedObject var transparency = PanelTransparency()
+    var panelStyle = PanelStyle.current
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    private let displayTint = Color(red: 0.65, green: 0.95, blue: 0.75)
-    private let powerTint = Color(red: 1, green: 0.09, blue: 0.18)
+    private var palette: PlayerPalette { panelStyle.palette }
     private static let width: CGFloat = 426
     static let padding: CGFloat = 18
     private static let rowSpacing: CGFloat = 10
@@ -40,18 +52,23 @@ struct PlayerView: View {
             audioLevelSlot
         }
         .font(.system(size: 10, weight: .medium, design: .monospaced))
-        .foregroundStyle(displayTint)
+        .foregroundStyle(Color(nsColor: palette.display))
         .padding(Self.padding)
         .frame(width: Self.width)
         // Only the window sets its height. The panel fills it, with the rows pinned to its top.
         .frame(maxHeight: .infinity, alignment: .top)
         .background {
-            PlayerPanelBackground(transparency: transparency, reduceTransparency: reduceTransparency)
+            PlayerPanelBackground(
+                transparency: transparency, reduceTransparency: reduceTransparency, style: panelStyle
+            )
         }
         .overlay {
-            RoundedRectangle(cornerRadius: 10)
-                .strokeBorder(.white, lineWidth: 1)
-                .allowsHitTesting(false)
+            // Liquid Glass draws its own edge.
+            if panelStyle == .classic {
+                RoundedRectangle(cornerRadius: panelStyle.cornerRadius)
+                    .strokeBorder(.white, lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
         }
     }
 
@@ -62,7 +79,7 @@ struct PlayerView: View {
             .frame(minHeight: 0, idealHeight: 0, maxHeight: .infinity)
             .overlay(alignment: .top) {
                 ZStack(alignment: .topLeading) {
-                    AudioLevelMeters(player: player, tint: displayTint, peakHoldTint: powerTint)
+                    AudioLevelMeters(player: player, palette: palette)
                         .padding(.top, Self.rowSpacing)
                         .accessibilityHidden(true)
                         // Only the Reduce Motion fade animates: hidden meters go dark at once, not over the fade.
@@ -86,7 +103,7 @@ struct PlayerView: View {
                             if player.showsDriveSelector {
                                 TransportButton(
                                     symbol: "opticaldiscdrive", label: player.driveSelectorLabel,
-                                    tint: displayTint, height: 20, pointSize: 11
+                                    tint: palette.display, height: 20, pointSize: 11
                                 ) {
                                     player.selectNextDrive()
                                 }
@@ -112,7 +129,7 @@ struct PlayerView: View {
                     }
                     TransportButton(
                         symbol: "power", label: "Quit CD Player",
-                        tint: powerTint, height: 20
+                        tint: palette.power, height: 20
                     ) {
                         NSApplication.shared.terminate(nil)
                     }
@@ -128,7 +145,7 @@ struct PlayerView: View {
                         // Lit while the output runs at the source's 44.1 kHz; the tint stays truthful when disabled.
                         TransportButton(
                             symbol: player.outputRateSymbol, label: player.outputRateLabel,
-                            tint: player.outputMatchesSource ? displayTint : displayTint.opacity(0.35),
+                            tint: player.outputMatchesSource ? palette.display : palette.dimmedDisplay,
                             height: 12, pointSize: 10, dimsWhenDisabled: false
                         ) {
                             Task { await player.toggleOutputRate() }
@@ -144,8 +161,10 @@ struct PlayerView: View {
                 Text("TRK")
                     .font(.system(size: 14, design: .monospaced))
                 Text(player.trackText)
+                    .font(.custom("Helvetica-Oblique", size: 38))
                 Spacer()
                 Text(player.timeText)
+                    .font(.custom("Helvetica-Oblique", size: 38))
             }
             .font(.system(size: 38, weight: .medium, design: .monospaced))
             .monospacedDigit()
@@ -185,8 +204,7 @@ struct PlayerView: View {
 
     private struct AudioLevelMeters: View {
         @ObservedObject var player: PlayerModel
-        let tint: Color
-        let peakHoldTint: Color
+        let palette: PlayerPalette
 
         var body: some View {
             VStack(spacing: AudioLevelBarsView.rowSpacing) {
@@ -198,7 +216,7 @@ struct PlayerView: View {
                     // Paused, the meters are already dark; a player change redraws them once without the timer.
                     AudioLevelBars(
                         isLive: player.audioLevelsAreLive, read: { [player] in player.refreshAudioLevels() },
-                        tint: tint, peakHoldTint: peakHoldTint
+                        lit: palette.display, unlit: palette.unlitSegment, peakHold: palette.power
                     )
                 }
                 .frame(height: AudioLevelBarsView.height)
@@ -257,7 +275,8 @@ struct PlayerView: View {
             choices: player.outputChoices,
             selectedID: player.selectedOutputID,
             // Half of the whole row, whether or not the rate icon is shown.
-            maximumNameWidth: Double(Self.rowWidth / 2)
+            maximumNameWidth: Double(Self.rowWidth / 2),
+            tint: palette.status, dimmedTint: palette.dimmedStatus
         )
     }
 
@@ -266,14 +285,14 @@ struct PlayerView: View {
         action: @escaping @MainActor () async -> Void
     ) -> some View {
         let isEnabled = enabled ?? player.controlsEnabled
-        return TransportButton(symbol: symbol, label: label, tint: displayTint, hold: hold) {
+        return TransportButton(symbol: symbol, label: label, tint: palette.display, hold: hold) {
             Task { await action() }
         }
         .disabled(!isEnabled)
         .frame(maxWidth: .infinity)
         .overlay {
             RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(displayTint.opacity(isEnabled ? 0.7 : 0.2), lineWidth: 0.75)
+                .strokeBorder(Color(nsColor: isEnabled ? palette.outline : palette.disabledOutline), lineWidth: 0.75)
                 .allowsHitTesting(false)
         }
     }

@@ -183,6 +183,37 @@ formats. It is used only for approved crash-recovery tests.
    Reduce transparency makes the background solid and disables adjustments
    without overwriting the saved level. Resize steps still invalidate the
    window shadow.
+   On macOS 26 or later, `PanelStyle.current` is `.glass`. `PlayerWindow`
+   makes an `NSGlassEffectView` (clear style, 16 pt corners) the window's
+   content view and the hosting view its `contentView`, resized by its
+   autoresizing mask. It subscribes to `PanelTransparency` and sets the glass
+   `tintColor` to `windowBackgroundColor` with its opacity scaled by
+   1 − percentage/100, through a dynamic colour so the tint follows Light and
+   Dark Mode. `PlayerPanelBackground` then draws nothing, or under Reduce
+   transparency a solid window-background rounded rectangle, and the white
+   border is omitted. Each style has a `PlayerPalette` (`App/PanelStyle.swift`)
+   built once, because the views skip updates with equal colours and dynamic
+   colours are equal only to themselves. The glass palette uses `labelColor`,
+   `secondaryLabelColor` and `systemRed`; dimmed variants scale opacity with
+   a dynamic provider, since `withAlphaComponent` would fix a system colour to
+   one appearance. Core Animation layers in `AudioLevelBarsView` and
+   `OutputStatusLine` cannot follow dynamic colours, so they resolve them on
+   creation, when moved to a window and when the effective appearance
+   changes. They resolve in the window's appearance (`layerColorAppearance`):
+   on glass, SwiftUI gives hosted AppKit views a vibrant appearance whose
+   colours rely on vibrancy blending, which layers do not do. macOS 14 and 15
+   use `.classic`, the dark green panel described above.
+   View > Appearance offers Follow System, Light and Dark only on macOS 26
+   or later. CDKit's `PanelAppearance` stores the selection under
+   `PanelAppearance` in defaults, initially `system`; invalid saved values
+   are logged and repaired. The app delegate shares it with the command
+   menu and window. The glass window subscribes to its published selection,
+   setting only its own `NSWindow.appearance` to Aqua or Dark Aqua, or `nil`
+   to resume inheritance from macOS. This also updates the glass tint,
+   SwiftUI colours and AppKit layers. The classic window ignores the
+   selection. Application appearance, transparency, audio and window size
+   are untouched; Reduce transparency still uses a solid fill in the
+   selected appearance.
 7. **Status.** `PlayerModel` polls the engine snapshot every 100 ms for the
    current frame, buffering, end of disc and concealed sectors, and derives
    every string the view shows (`trackText`, `timeText`, `statusText`,
@@ -395,7 +426,8 @@ stopped or paused.
 
 | Change | Start in |
 |---|---|
-| Layout, colours, buttons, audio-level meters | `App/PlayerView.swift`, `App/TransportButton.swift`, `App/OutputStatusLine.swift`, `OutputLineLayout.swift` |
+| Layout, colours, buttons, audio-level meters | `App/PlayerView.swift`, `App/PanelStyle.swift`, `App/TransportButton.swift`, `App/OutputStatusLine.swift`, `OutputLineLayout.swift` |
+| Window, Liquid Glass host, panel preferences | `App/PlayerWindow.swift`, `App/PanelTransparencyMenu.swift`, `Sources/CDKit/PanelTransparency.swift`, `Sources/CDKit/PanelAppearance.swift` |
 | Menus and shortcuts | `App/PlayerCommands.swift`, `App/CDPlayerApp.swift` |
 | Transport rules, display strings, drive selection | `Sources/CDKit/PlayerModel.swift` |
 | Drive or disc discovery, eject | `MacOpticalDriveService.swift`, `DiskEjectRequest.swift`, `CDTableOfContents.swift` |

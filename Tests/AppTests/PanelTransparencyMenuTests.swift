@@ -59,7 +59,9 @@ final class PanelTransparencyMenuTests: XCTestCase {
             styleMask: [.borderless], backing: .buffered, defer: false
         )
         window.isReleasedWhenClosed = false
-        let host = NSHostingView(rootView: PlayerPanelBackground(transparency: setting, reduceTransparency: false))
+        let host = NSHostingView(rootView: PlayerPanelBackground(
+            transparency: setting, reduceTransparency: false, style: .classic
+        ))
         window.contentView = host
         window.center()
         window.orderFrontRegardless()

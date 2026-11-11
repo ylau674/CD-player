@@ -45,6 +45,30 @@ final class OutputStatusLineTests: XCTestCase {
         return root.convert(shown.bounds, from: shown)
     }
 
+    func testGlassStatusLineFollowsTheAppearanceWithoutLayout() throws {
+        let view = OutputStatusLineView(frame: NSRect(x: 0, y: 0, width: 368, height: 14))
+        let window = window(for: view)
+        defer { window.close() }
+        var line = content(enabled: false)
+        line.tone = .normal
+        line.tint = PlayerPalette.glass.status
+        line.dimmedTint = PlayerPalette.glass.dimmedStatus
+        view.update(line, reduceMotion: true)
+        func color(_ layer: CATextLayer) -> NSColor? {
+            (layer.string as? NSAttributedString)?.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        }
+        for name in [NSAppearance.Name.darkAqua, .aqua, .darkAqua] {
+            window.appearance = NSAppearance(named: name)
+            let appearance = try XCTUnwrap(NSAppearance(named: name))
+            XCTAssertEqual(color(view.statusLayer), NSColor.secondaryLabelColor.resolved(for: appearance), "\(name)")
+            let dimmed = NSColor.secondaryLabelColor.resolved(for: appearance)
+            let nameColor = try XCTUnwrap(color(view.nameLayers[0]))
+            XCTAssertEqual(nameColor.redComponent, dimmed.redComponent, accuracy: 0.001)
+            XCTAssertEqual(nameColor.alphaComponent, dimmed.alphaComponent * 0.45, accuracy: 0.001)
+            XCTAssertEqual(color(view.indicatorLayer), nameColor)
+        }
+    }
+
     func testMeasuredFitReduceMotionAndSeparateAccessibility() throws {
         let view = OutputStatusLineView(frame: NSRect(x: 0, y: 0, width: 368, height: 14))
         let window = window(for: view)
@@ -250,7 +274,7 @@ final class OutputStatusLineTests: XCTestCase {
         let model = PlayerModel.offline()
         let transparency = PanelTransparency()
         await model.inspectOutput()
-        let playerWindow = PlayerWindow(player: model, transparency: transparency)
+        let playerWindow = PlayerWindow(player: model, transparency: transparency, panelStyle: .classic)
         playerWindow.center()
         playerWindow.orderFrontRegardless()
         defer { playerWindow.close() }
@@ -275,22 +299,162 @@ final class OutputStatusLineTests: XCTestCase {
 
     func testPanelBackgroundRendersBothAccessibilitySettings() async throws {
         let transparency = PanelTransparency()
-        for reduced in [false, true] {
-            let host = NSHostingView(rootView: PlayerPanelBackground(
-                transparency: transparency, reduceTransparency: reduced
-            ))
-            host.frame.size = NSSize(width: 100, height: 100)
-            let window = window(for: host)
-            defer { window.close() }
-            for percentage in [0.0, 40, 70, 90] {
-                transparency.setPercentage(percentage)
-                await settle(0.1)
-                let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-                host.cacheDisplay(in: host.bounds, to: bitmap)
-                let fill = try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2))
-                XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 1 - percentage / 100, accuracy: 0.02)
+        for style in [PanelStyle.classic, .glass] {
+            for reduced in [false, true] {
+                let host = NSHostingView(rootView: PlayerPanelBackground(
+                    transparency: transparency, reduceTransparency: reduced, style: style
+                ))
+                host.frame.size = NSSize(width: 100, height: 100)
+                let window = window(for: host)
+                defer { window.close() }
+                for percentage in [0.0, 40, 70, 90] {
+                    transparency.setPercentage(percentage)
+                    await settle(0.1)
+                    let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+                    host.cacheDisplay(in: host.bounds, to: bitmap)
+                    let fill = try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2))
+                    // In glass the window's glass is the panel, so only Reduce Transparency fills it.
+                    let expected: Double = switch style {
+                    case .classic: reduced ? 1 : 1 - percentage / 100
+                    case .glass: reduced ? 1 : 0
+                    }
+                    XCTAssertEqual(fill.alphaComponent, expected, accuracy: 0.02, "\(style), reduced \(reduced)")
+                }
             }
         }
+    }
+
+    // MARK: Liquid Glass
+
+    func testGlassHostsThePlayerOnMacOS26() async throws {
+        guard #available(macOS 26, *) else {
+            XCTAssertEqual(PanelStyle.current, .classic)
+            throw XCTSkip("Liquid Glass needs macOS 26")
+        }
+        XCTAssertEqual(PanelStyle.current, .glass)
+        let model = PlayerModel.offline()
+        await model.inspectOutput()
+        let window = await playerWindow(for: model, reduceMotion: true, panelStyle: .glass)
+        defer { window.close() }
+        let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
+        let host = window.hostingView
+        XCTAssertEqual(glass.style, .clear)
+        XCTAssertEqual(glass.cornerRadius, 16)
+        XCTAssertTrue(glass.contentView === host)
+        XCTAssertFalse(window.isOpaque)
+        XCTAssertEqual(window.backgroundColor.alphaComponent, 0)
+        XCTAssertTrue(window.hasShadow)
+        XCTAssertEqual(window.frame.width, 426, accuracy: 0.5)
+
+        // Clicks on the display reach the player, which drags the window, rather than stopping in the glass.
+        let padding = host.convert(NSPoint(x: PlayerView.padding / 2, y: host.bounds.midY), to: nil)
+        let superview = try XCTUnwrap(glass.superview)
+        XCTAssertTrue(glass.hitTest(superview.convert(padding, from: nil)) === host)
+        let line = try XCTUnwrap(descendant(OutputStatusLineView.self, in: host))
+        let status = line.convert(NSPoint(x: 2, y: line.bounds.midY), to: nil)
+        XCTAssertTrue(glass.hitTest(superview.convert(status, from: nil))?.isDescendant(of: line) == true)
+        let button = try XCTUnwrap(descendant(TransportNSButton.self, in: host))
+        let center = button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: nil)
+        XCTAssertTrue(glass.hitTest(superview.convert(center, from: nil)) === button)
+
+        // The glass and the player follow the window as the audio levels show and hide.
+        let closedFrame = window.frame
+        for showing in [true, false] {
+            model.toggleAudioLevels()
+            await settle(PlayerView.audioLevelsAnimationDuration + 0.2)
+            let height = closedFrame.height + (showing ? PlayerView.audioLevelsAddedHeight : 0)
+            XCTAssertEqual(window.frame.height, height, accuracy: 0.5)
+            XCTAssertEqual(window.frame.maxY, closedFrame.maxY, accuracy: 0.5)
+            XCTAssertEqual(glass.frame.size, window.frame.size)
+            XCTAssertEqual(host.convert(host.bounds, to: glass), glass.bounds)
+        }
+        try await model.shutdown()
+    }
+
+    func testGlassTintFollowsTransparencyAndAppearance() async throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Liquid Glass needs macOS 26") }
+        let model = PlayerModel.offline()
+        let transparency = PanelTransparency()
+        let window = await playerWindow(
+            for: model, reduceMotion: true, panelStyle: .glass, transparency: transparency
+        )
+        defer { window.close() }
+        let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
+        for percentage in [PanelTransparency.defaultPercentage, 0, 40, 70, 90] {
+            transparency.setPercentage(percentage)
+            let tint = try XCTUnwrap(glass.tintColor)
+            for name in [NSAppearance.Name.aqua, .darkAqua] {
+                let appearance = try XCTUnwrap(NSAppearance(named: name))
+                let drawn = tint.resolved(for: appearance)
+                let background = NSColor.windowBackgroundColor.resolved(for: appearance)
+                XCTAssertEqual(drawn.alphaComponent, 1 - percentage / 100, accuracy: 0.001, "\(percentage)%")
+                XCTAssertEqual(drawn.redComponent, background.redComponent, accuracy: 0.001, "\(name)")
+                XCTAssertEqual(drawn.greenComponent, background.greenComponent, accuracy: 0.001, "\(name)")
+                XCTAssertEqual(drawn.blueComponent, background.blueComponent, accuracy: 0.001, "\(name)")
+            }
+        }
+        try await model.shutdown()
+    }
+
+    func testGlassPanelUsesSystemColoursInLightAndDarkMode() async throws {
+        guard #available(macOS 26, *) else { throw XCTSkip("Liquid Glass needs macOS 26") }
+        let model = PlayerModel.offline()
+        let appearanceSetting = PanelAppearance()
+        await model.inspectOutput()
+        XCTAssertFalse(model.statusIsError || model.statusIsWarning)
+        let window = await playerWindow(
+            for: model, reduceMotion: true, panelStyle: .glass, panelAppearance: appearanceSetting
+        )
+        defer { window.close() }
+        let host = window.hostingView
+        let line = try XCTUnwrap(descendant(OutputStatusLineView.self, in: host))
+        let bars = try XCTUnwrap(descendant(AudioLevelBarsView.self, in: host))
+        let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        for selection in [PanelAppearance.Selection.light, .dark, .light] {
+            appearanceSetting.setSelection(selection)
+            let isDark = selection == .dark
+            let name: NSAppearance.Name = isDark ? .darkAqua : .aqua
+            XCTAssertEqual(window.appearance?.name, name)
+            await settle(0.2)
+            let appearance = try XCTUnwrap(NSAppearance(named: name))
+
+            let status = try XCTUnwrap(
+                (line.statusLayer.string as? NSAttributedString)?.attribute(.foregroundColor, at: 0, effectiveRange: nil)
+                    as? NSColor
+            )
+            XCTAssertEqual(status, NSColor.secondaryLabelColor.resolved(for: appearance), "\(name) status")
+            let unlit = try XCTUnwrap(bars.segmentLayers.first?.backgroundColor)
+            XCTAssertEqual(unlit, PlayerPalette.glass.unlitSegment.resolved(for: appearance).cgColor, "\(name) meter")
+
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            let scale = CGFloat(bitmap.pixelsWide) / host.bounds.width
+            let transparent = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0)
+            func pixel(x: Int, y: Int) -> NSColor {
+                bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) ?? transparent
+            }
+            // No border, and no fill over the glass unless Reduce Transparency is on.
+            let edge = pixel(x: 0, y: bitmap.pixelsHigh / 2)
+            let fill = pixel(x: Int(PlayerView.padding / 2 * scale), y: bitmap.pixelsHigh / 2)
+            XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 0, accuracy: 0.02, "\(name) fill")
+            if !reduced { XCTAssertEqual(edge.alphaComponent, 0, accuracy: 0.02, "\(name) border") }
+            var text = 0
+            var mint = 0
+            for y in 0..<bitmap.pixelsHigh {
+                for x in 0..<bitmap.pixelsWide {
+                    let color = pixel(x: x, y: y)
+                    if isDisplayTint(color) { mint += 1 }
+                    let components = [color.redComponent, color.greenComponent, color.blueComponent]
+                    // On glass the label colour is 70% to 90% opaque, so a premultiplied white is 0.7 at least.
+                    let isLabel = isDark ? components.allSatisfy { $0 > 0.65 } : components.allSatisfy { $0 < 0.15 }
+                    if color.alphaComponent > 0.65, isLabel { text += 1 }
+                }
+            }
+            XCTAssertEqual(mint, 0, "\(name): classic display tint")
+            XCTAssertGreaterThan(text, 500, "\(name): the display's text in the label colour")
+            attach(host, name: "Glass panel, \(name.rawValue)")
+        }
+        try await model.shutdown()
     }
 
     func testAudioLevelsExtendTheWindowDownwardWithTheDisplayFixed() async throws {
@@ -892,7 +1056,9 @@ final class OutputStatusLineTests: XCTestCase {
     }
 
     private func playerWindow(
-        for model: PlayerModel, reduceMotion: Bool,
+        for model: PlayerModel, reduceMotion: Bool, panelStyle: PanelStyle = .classic,
+        transparency: PanelTransparency = PanelTransparency(),
+        panelAppearance: PanelAppearance = PanelAppearance(),
         isMeterWindowVisible: (@MainActor (NSWindow) -> Bool)? = nil
     ) async -> PlayerWindow {
         let visibilityProbe = isMeterWindowVisible ?? { window in
@@ -900,7 +1066,9 @@ final class OutputStatusLineTests: XCTestCase {
                 NSScreen.screens.contains { $0.frame.intersects(window.frame) }
         }
         let window = PlayerWindow(
-            player: model, reduceMotion: { reduceMotion }, isMeterWindowVisible: visibilityProbe
+            player: model, transparency: transparency, panelStyle: panelStyle,
+            panelAppearance: panelAppearance, reduceMotion: { reduceMotion },
+            isMeterWindowVisible: visibilityProbe
         )
         // `center()` picks the display in use, so pixel checks would vary with it; always use the sharpest.
         if let visible = NSScreen.screens.max(by: { $0.backingScaleFactor < $1.backingScaleFactor })?.visibleFrame {
@@ -1238,7 +1406,7 @@ private final class UILevelSource: AudioLevelSource, @unchecked Sendable {
     }
 }
 
-private extension PlayerModel {
+extension PlayerModel {
     static func offline() -> PlayerModel {
         PlayerModel(
             engine: UIEngine(), audioLevelSource: UILevelSource(), automaticallyMonitor: false,
