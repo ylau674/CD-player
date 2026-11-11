@@ -6197,3 +6197,60 @@ Helvetica Oblique. The two readouts now use the `Helvetica-Oblique`
 PostScript face at the existing 38 pt size. The `TRK` label and all other
 text retain their existing fonts; the readouts remain monospaced-digit
 aligned. No playback behavior or layout dimensions were changed.
+
+## Apple silicon only (2026-11-12)
+
+**Request.** The owner does not want the app to run on Intel Macs. At WWDC25,
+Apple said that macOS Tahoe (26) is the final release for Intel Macs
+([Platforms State of the Union](https://developer.apple.com/videos/play/wwdc2025/102/)).
+Earlier releases, up to 1.3.5, were universal (`arm64` and `x86_64`).
+
+### Change
+
+- `project.yml` sets `ARCHS: arm64` for all targets, so Xcode Release builds
+  and archives contain only the Apple silicon slice. Debug builds already
+  built only the active architecture.
+- Xcode builds Swift package targets with the standard architectures and
+  ignores the project's `ARCHS`. A Release build with only the `project.yml`
+  setting still compiled `CDKit`, `CDAudioCore` and `HDCD` for `x86_64` and
+  discarded those objects at link time. `Tools/package-release.sh` therefore
+  passes `ARCHS=arm64` to `xcodebuild`, so every target builds only `arm64`.
+- After building, the release script checks `lipo -archs` on the app
+  executable and fails unless it is exactly `arm64`. `lipo` joins the
+  required-tool check.
+- The deployment target stays macOS 14. Every Apple silicon Mac can run
+  macOS 14, so raising the minimum would drop nothing further. That is a
+  separate decision.
+- The `CDKit` package, its `AudioCheck` and `OpticalCheck` tools and CI are
+  unaffected: `swift test` and `swift build` build for the host only.
+- Released universal ZIPs (1.3.5 and earlier) stay on GitHub for Intel Macs.
+  Opening the new app on an Intel Mac shows the standard macOS message that
+  the app is not supported on this Mac. It was not tried on an Intel Mac.
+
+### Validation
+
+- A copy of `Tools/package-release.sh`, with only the derived-data and
+  package paths moved to `/tmp`, ran to completion. This was done so the
+  1.3.5 package in `build/packages` was not overwritten.
+  - The app executable is `arm64` only, with `minos 14.0`, and
+    `LSMinimumSystemVersion` is 14.0.
+  - The strict, hardened-runtime ad-hoc signature verified.
+  - The extracted ZIP's app is `arm64` and verifies.
+  - Every intermediate object directory (`CDPlayer`, `CDKit`, `CDAudioCore`,
+    `HDCD`) is `arm64` only, and the build log has no `x86_64` objects.
+- Before `ARCHS=arm64` was added to the script, the same run had produced
+  `x86_64` objects for the three package targets. The app was already
+  `arm64` only.
+- The architecture check rejects the universal 1.3.5 Release executable,
+  which reports `x86_64 arm64`.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 38 native UI tests. In the first full run,
+  `testSwiftUIMenuContainsWorkingSliderAndUpdatesBackgroundWhileTracking`
+  failed its `examined` assertion. The live menu closed before the probe
+  sampled it, the same timing flake seen earlier. It passed when run alone,
+  and the next full run passed all 38.
+- The CDKit sources did not change. The offline suite was not rerun for this
+  change.
+
+No playback, installation or Intel Mac check was performed.

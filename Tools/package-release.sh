@@ -10,7 +10,7 @@ VERSION="1.3.5"
 BUNDLE_ID="io.github.ylau674.CDPlayer"
 ZIP="$PACKAGE_DIR/CDPlayer-$VERSION-macOS.zip"
 
-for tool in xcodegen xcodebuild codesign ditto shasum; do
+for tool in xcodegen xcodebuild codesign ditto shasum lipo; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "Required tool not found: $tool" >&2
         exit 1
@@ -19,11 +19,13 @@ done
 
 cd "$ROOT"
 xcodegen generate
+# Swift package targets ignore project.yml's ARCHS, so set it for the whole build.
 xcodebuild \
     -project "$PROJECT" \
     -scheme CDPlayer \
     -configuration Release \
     -derivedDataPath "$DERIVED_DATA" \
+    ARCHS=arm64 \
     build
 
 if [[ ! -d "$APP" ]]; then
@@ -34,6 +36,12 @@ fi
 APP_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
 if [[ "$APP_VERSION" != "$VERSION" ]]; then
     echo "Expected app version $VERSION, found $APP_VERSION" >&2
+    exit 1
+fi
+
+APP_ARCHS=$(lipo -archs "$APP/Contents/MacOS/CDPlayer")
+if [[ "$APP_ARCHS" != "arm64" ]]; then
+    echo "Expected an Apple silicon (arm64) only app, found: $APP_ARCHS" >&2
     exit 1
 fi
 

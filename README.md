@@ -193,7 +193,10 @@ hardware results and the remaining limitations are in the
 
 ## Requirements
 
-- macOS 14 Sonoma or newer, on Apple silicon or Intel (universal binary).
+- A Mac with Apple silicon, running macOS 14 Sonoma or newer. Intel Macs are
+  not supported after version 1.3.5; 1.3.5 and earlier are universal and
+  remain available on the
+  [releases page](https://github.com/ylau674/CD-player/releases).
 - An optical drive that can read audio CDs.
 - macOS must allow the logged-in user to read the drive's raw device. The app
   does not work around managed removable-media policy.
@@ -232,8 +235,9 @@ To set up a new machine and for the full workflow, see the
 ./Tools/package-release.sh
 ```
 
-The script builds the universal Release app with the hardened runtime and an
-ad-hoc signature. It verifies the build and writes
+The script builds the Apple silicon (`arm64`) Release app with the hardened
+runtime and an ad-hoc signature. It verifies the build, including that the app
+contains no other architecture, and writes
 `build/packages/CDPlayer-<version>-macOS.zip`. Install by dragging
 `CDPlayer.app` from the ZIP into `/Applications`.
 The current [1.3.5 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.5/CDPlayer-1.3.5-macOS.zip)

@@ -444,7 +444,8 @@ Confirmed by the owner on 2026-11-03.
   the shown and hidden sizes on 2026-11-03.
 - **CPU:** measured on Apple silicon in a Debug build (see M9.4), then in
   Release after 1.3.0 and after 1.3.1 (see the CPU follow-ups below). Intel
-  Mac performance remains unmeasured.
+  Mac performance was never measured, and Intel Macs are not supported after
+  1.3.5.
 
 ### CPU follow-up after 1.3.0 (2026-11-03)
 

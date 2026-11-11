@@ -27,6 +27,14 @@ All notable changes to this project are documented here. The format follows
 - Building the app now requires Xcode 26 or later (macOS 26 SDK). The
   deployment target stays macOS 14.
 
+### Removed
+
+- Intel Mac support. The app is now built for Apple silicon (`arm64`) only,
+  and the release script rejects any other architecture. Apple has said
+  macOS 26 Tahoe is the last release for Intel Macs. Version 1.3.5 and
+  earlier are universal and remain available for Intel Macs. The minimum
+  stays macOS 14.
+
 ## [1.3.5] - 2026-11-05
 
 ### Changed

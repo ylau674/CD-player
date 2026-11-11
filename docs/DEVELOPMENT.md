@@ -17,7 +17,8 @@ the release steps, the process the project followed, and the open backlog.
    Version 1.0.0 was developed with Xcode 27.1 (Swift 6.4) on macOS 27.2.
    The offline suite also passes in CI with Xcode 26.6 (Swift 6.3.3). The
    package and app use the Swift 6 language mode and target macOS 14. The app
-   needs Xcode 26 or later for the macOS 26 SDK's `NSGlassEffectView`.
+   needs Xcode 26 or later for the macOS 26 SDK's `NSGlassEffectView`, and is
+   built for Apple silicon (`arm64`) only.
 2. Install [Homebrew](https://brew.sh) if necessary, then **XcodeGen**:
 
    ```sh
@@ -429,8 +430,9 @@ On the test Mac, check:
   `log stream --level info --predicate 'subsystem == "io.github.ylau674.CDPlayer"'`.
 - **Output:** wired headphones and speakers, the 44.1 kHz icon, and that the
   previous rate returns after Stop and Quit.
-- **Intel Macs:** the app is universal, so an Intel Mac on macOS 14 or later is
-  a useful extra check.
+
+The app runs only on Apple silicon. Intel Macs are not supported after
+version 1.3.5.
 
 To remove it, quit normally, then move `/Applications/CDPlayer.app` to the
 Trash.
@@ -519,6 +521,7 @@ subtasks in build order with explicit prerequisites. For each subtask:
 | Public release | Version 1.3.3: Apache-2.0 licence, About-panel credits with libhdcd's BSD notices, bundle identifier `io.github.ylau674.CDPlayer`, contributing and security files, personal data redacted, published with fresh history. |
 | Translucent panel | Version 1.3.5: the panel's background is adjustable from 0% to 90% with a View menu slider and remembered; new installations start at 15% transparency; text, buttons and meters stay solid. |
 | Liquid Glass panel | Unreleased: on macOS 26 or later the panel is clear Liquid Glass in system colours, without the border; View > Appearance remembers Follow System / Light / Dark for the player window; the transparency slider independently sets the glass tint; macOS 14 and 15 keep the dark green panel. |
+| Apple silicon only | Unreleased: the app is built for `arm64` only, and the release script fails on any other architecture; Intel Macs keep 1.3.5; the minimum stays macOS 14. |
 
 The [development log](DEVELOPMENT_LOG.md) holds the full detail and evidence
 for every row.
