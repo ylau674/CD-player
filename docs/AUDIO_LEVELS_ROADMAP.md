@@ -58,7 +58,8 @@ read. The audio callback does not change, so the output stays bit-identical.
 
 - **Style:** part of the display, inside the same dark-green panel with its
   white 1 pt border and rounded corners. They use the display's mint tint and
-  monospaced labels, with no box of their own.
+  monospaced labels, with no box of their own. (Versions after 1.3.5 replace
+  that panel with Liquid Glass; the meters then use the system label colour.)
 - **Bars:** two horizontal bars, L above R, with 20 segments each.
   - Lit segments use the display's mint. The peak-hold segment uses the power
     icon's red. Segments do not change colour with level: there is no amber

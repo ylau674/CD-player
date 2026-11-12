@@ -6254,3 +6254,99 @@ Earlier releases, up to 1.3.5, were universal (`arm64` and `x86_64`).
   change.
 
 No playback, installation or Intel Mac check was performed.
+
+## Liquid Glass only (2026-11-12)
+
+**Request.** The owner asked to remove the classic dark green panel and keep
+only Liquid Glass. `NSGlassEffectView` needs macOS 26, so the owner chose to
+raise the app's minimum to macOS 26 Tahoe rather than keep a fallback panel
+for macOS 14 and 15. Version 1.3.5 and earlier remain available for those
+systems and for Intel Macs.
+
+### Change
+
+- `project.yml` sets the deployment target of the app and its UI-test target
+  to macOS 26.0. `Info.plist` takes `LSMinimumSystemVersion` from
+  `MACOSX_DEPLOYMENT_TARGET`, so it follows. The `CDKit` package, its
+  `AudioCheck` and `OpticalCheck` tools and CI still target macOS 14; nothing
+  in them needs macOS 26.
+- `PanelStyle` and the classic palette are removed. `App/PanelStyle.swift` is
+  now `App/PlayerPalette.swift`, with the single `PlayerPalette.glass` and the
+  colour helpers.
+- `PlayerWindow` always hosts the player in an `NSGlassEffectView`, without an
+  availability check or fallback. `PlayerView` no longer takes a style or the
+  transparency setting and has no border. `PlayerPanelBackground` takes only
+  Reduce transparency, and draws the solid window-background fill only then.
+  View › Appearance no longer has an availability check, and
+  `OutputStatusLine` defaults to the glass status colours.
+- CDKit's `PanelTransparency.opacity(reduceTransparency:)` no longer has an
+  app caller. It stays, with its CDKit tests, as part of the package's API.
+- **Peak hold red.** Until now the pixel tests ran only on the classic panel.
+  On glass, the power symbol draws `systemRed` in the vibrant appearance that
+  SwiftUI gives hosted AppKit views: sRGB 245, 49, 38 in Vibrant Light and
+  255, 79, 68 in Vibrant Dark. The hold layer resolved it in the window's
+  appearance: 255, 56, 60 in Aqua and 255, 66, 69 in Dark Aqua. The hold was
+  therefore paler than the power button. `AudioLevelBarsView` now resolves the
+  peak-hold red in its own effective appearance. Label colours still resolve
+  in the window's appearance, because their vibrant variants rely on vibrancy
+  blending, which layers do not do; the red needs none.
+
+### Tests
+
+- `testClassicWindowIgnoresTheGlassAppearancePreference` is removed.
+  `testOnlyThePanelFillIsTranslucentUnlessReduceTransparencyIsOn` and
+  `testTransparencySettingChangesRenderedFillLiveWithoutFadingControls` become
+  `testTransparencyTintsOnlyTheGlassWithoutFadingTheDisplay`. At 0, 40, 70 and
+  90% it checks that:
+  - the glass tint's opacity is 1 − percentage/100;
+  - the window's alpha stays 1;
+  - the padding is clear, or solid under Reduce transparency;
+  - the display draws the same number of label-coloured pixels.
+- The menu-tracking test, renamed
+  `testSwiftUIMenuContainsWorkingSliderAndTintsTheGlassWhileTracking`, checks
+  the glass tint while the live menu tracks, instead of rendering the classic
+  background.
+- The pixel helpers recognise the display by the label colour of the
+  window's appearance instead of the classic mint: white in Dark Mode, black
+  in Light Mode, at least 65% opaque. They capture
+  `PlayerWindow.hostingView`, because the window's content view is now the
+  glass, which `cacheDisplay` does not render.
+- `assertPanelFillsWindow` no longer looks for the white border. It checks
+  that:
+  - the hosting view fills the glass, and the glass fills the window;
+  - in every sampled animation frame, the first drawn row stays where the
+    closed window has it (23.5 pt from the top, inside the 18 pt padding);
+  - once settled, the last drawn row is 18–26 pt above the bottom: 25 pt
+    closed and 20 pt with the meters.
+
+  Its row scans stop at the first drawn row from each edge. A first version
+  scanned the whole bitmap, which blocked the main thread long enough for the
+  resize animation to finish between samples.
+- `testAudioLevelPeakHoldIsThePowerButtonRed` runs in Light and in Dark. It
+  failed on glass in Light Mode before the peak-hold fix: the hold measured
+  241, 100, 87 and the power symbol 233, 92, 68 in the display's colour space.
+  `isPowerRed` now accepts the Dark Mode red, whose green the display's colour
+  space lifts above the old 0.4 limit.
+- The `playerWindow` helper no longer takes a style, so every window test
+  runs on glass. There are 36 native UI tests: 38 before, less the removed
+  classic test, with two tests merged into one.
+
+### Validation
+
+- `xcodegen generate`, then the Debug build: no new warnings at the macOS 26
+  target.
+- `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 36 native UI tests passed.
+- `swift test --package-path Packages/CDKit`, plain and with
+  `--sanitize=address` and `--sanitize=thread`: 467 tests and the
+  29 `AudioCheck` tests passed in each run. The CDKit sources did not change.
+- A copy of `Tools/package-release.sh`, with the derived-data and package
+  paths moved to `/tmp`, ran to completion:
+  - the app executable is `arm64` only, with `minos 26.0`;
+  - `LSMinimumSystemVersion` is 26.0;
+  - the extracted ZIP's app is `arm64` and its signature verifies.
+- The README screenshot still shows the 1.3.5 dark green panel, and its
+  caption now says so. Replacing it needs a live screenshot with a disc,
+  which the owner takes.
+
+No playback, installation or hardware check was performed.

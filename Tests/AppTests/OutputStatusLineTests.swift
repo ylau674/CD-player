@@ -231,110 +231,62 @@ final class OutputStatusLineTests: XCTestCase {
         try await model.shutdown()
     }
 
-    func testOnlyThePanelFillIsTranslucentUnlessReduceTransparencyIsOn() async throws {
-        XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: false), 0.85, accuracy: 0.001)
-        XCTAssertEqual(PanelTransparency().opacity(reduceTransparency: true), 1)
-        let model = PlayerModel.offline()
-        await model.inspectOutput()
-        let window = await playerWindow(for: model, reduceMotion: false)
-        defer { window.close() }
-        XCTAssertFalse(window.isOpaque)
-        XCTAssertEqual(window.alphaValue, 1, "Fading the whole window would fade the display too")
-        let host = try XCTUnwrap(window.contentView)
-        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        let scale = CGFloat(bitmap.pixelsWide) / host.bounds.width
-        let transparent = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0)
-        func pixel(x: Int, y: Int) -> NSColor {
-            bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) ?? transparent
-        }
-
-        // Halfway into the left padding, at mid height, nothing but the fill is drawn.
-        let fill = pixel(x: Int(PlayerView.padding / 2 * scale), y: bitmap.pixelsHigh / 2)
-        let expected = PanelTransparency().opacity(
-            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        )
-        XCTAssertEqual(fill.alphaComponent, expected, accuracy: 0.02)
-        let border = pixel(x: 0, y: bitmap.pixelsHigh / 2)
-        XCTAssertTrue(isWhite(border) && border.alphaComponent > 0.99, "The border stays opaque")
-        var opaqueText = 0
-        for y in 0..<bitmap.pixelsHigh {
-            for x in 0..<bitmap.pixelsWide {
-                let color = pixel(x: x, y: y)
-                if color.alphaComponent > 0.99, isDisplayTint(color) { opaqueText += 1 }
-            }
-        }
-        // The track number and time alone draw far more fully opaque pixels than this.
-        XCTAssertGreaterThan(opaqueText, 500, "The display's text stays opaque")
-        attach(host, name: "Translucent panel")
-        try await model.shutdown()
-    }
-
-    func testTransparencySettingChangesRenderedFillLiveWithoutFadingControls() async throws {
+    func testTransparencyTintsOnlyTheGlassWithoutFadingTheDisplay() async throws {
         let model = PlayerModel.offline()
         let transparency = PanelTransparency()
         await model.inspectOutput()
-        let playerWindow = PlayerWindow(player: model, transparency: transparency, panelStyle: .classic)
-        playerWindow.center()
-        playerWindow.orderFrontRegardless()
-        defer { playerWindow.close() }
-        let host = try XCTUnwrap(playerWindow.contentView)
+        let window = await playerWindow(for: model, reduceMotion: true, transparency: transparency)
+        defer { window.close() }
+        XCTAssertFalse(window.isOpaque)
+        let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
+        let host = window.hostingView
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+        var drawnText: Int?
         for percentage in [0.0, 40, 70, 90] {
             transparency.setPercentage(percentage)
             await settle(0.1)
-            host.layoutSubtreeIfNeeded()
+            XCTAssertEqual(window.alphaValue, 1, "Fading the whole window would fade the display too")
+            let tint = try XCTUnwrap(glass.tintColor?.resolved(for: window.effectiveAppearance))
+            XCTAssertEqual(tint.alphaComponent, 1 - percentage / 100, accuracy: 0.001, "\(percentage)%")
             let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
             host.cacheDisplay(in: host.bounds, to: bitmap)
             let scale = CGFloat(bitmap.pixelsWide) / host.bounds.width
+            // Halfway into the left padding only the panel shows: the glass, or the Reduce Transparency fill.
             let fill = try XCTUnwrap(bitmap.colorAt(
                 x: Int(PlayerView.padding / 2 * scale), y: bitmap.pixelsHigh / 2
             ))
-            XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 1 - percentage / 100, accuracy: 0.02)
-            let border = try XCTUnwrap(bitmap.colorAt(x: 0, y: bitmap.pixelsHigh / 2))
-            XCTAssertEqual(border.alphaComponent, 1, accuracy: 0.01)
+            XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 0, accuracy: 0.02, "\(percentage)% fill")
+            let text = displayTintPixels(in: bitmap, dark: isDark(window))
+            // The track number and time alone draw far more than this, alike at every setting.
+            XCTAssertGreaterThan(text, 500, "\(percentage)%: the display's text")
+            if let drawnText { XCTAssertEqual(text, drawnText, "\(percentage)%: the display changed") }
+            drawnText = text
         }
+        attach(host, name: "Glass panel at 90%")
         try await model.shutdown()
     }
 
     func testPanelBackgroundRendersBothAccessibilitySettings() async throws {
-        let transparency = PanelTransparency()
-        for style in [PanelStyle.classic, .glass] {
-            for reduced in [false, true] {
-                let host = NSHostingView(rootView: PlayerPanelBackground(
-                    transparency: transparency, reduceTransparency: reduced, style: style
-                ))
-                host.frame.size = NSSize(width: 100, height: 100)
-                let window = window(for: host)
-                defer { window.close() }
-                for percentage in [0.0, 40, 70, 90] {
-                    transparency.setPercentage(percentage)
-                    await settle(0.1)
-                    let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
-                    host.cacheDisplay(in: host.bounds, to: bitmap)
-                    let fill = try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2))
-                    // In glass the window's glass is the panel, so only Reduce Transparency fills it.
-                    let expected: Double = switch style {
-                    case .classic: reduced ? 1 : 1 - percentage / 100
-                    case .glass: reduced ? 1 : 0
-                    }
-                    XCTAssertEqual(fill.alphaComponent, expected, accuracy: 0.02, "\(style), reduced \(reduced)")
-                }
-            }
+        for reduced in [false, true] {
+            let host = NSHostingView(rootView: PlayerPanelBackground(reduceTransparency: reduced))
+            host.frame.size = NSSize(width: 100, height: 100)
+            let window = window(for: host)
+            defer { window.close() }
+            await settle(0.1)
+            let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+            host.cacheDisplay(in: host.bounds, to: bitmap)
+            let fill = try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2))
+            // The window's glass is the panel, so only Reduce Transparency fills it.
+            XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 0, accuracy: 0.02, "reduced \(reduced)")
         }
     }
 
     // MARK: Liquid Glass
 
-    func testGlassHostsThePlayerOnMacOS26() async throws {
-        guard #available(macOS 26, *) else {
-            XCTAssertEqual(PanelStyle.current, .classic)
-            throw XCTSkip("Liquid Glass needs macOS 26")
-        }
-        XCTAssertEqual(PanelStyle.current, .glass)
+    func testGlassHostsThePlayer() async throws {
         let model = PlayerModel.offline()
         await model.inspectOutput()
-        let window = await playerWindow(for: model, reduceMotion: true, panelStyle: .glass)
+        let window = await playerWindow(for: model, reduceMotion: true)
         defer { window.close() }
         let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
         let host = window.hostingView
@@ -372,12 +324,9 @@ final class OutputStatusLineTests: XCTestCase {
     }
 
     func testGlassTintFollowsTransparencyAndAppearance() async throws {
-        guard #available(macOS 26, *) else { throw XCTSkip("Liquid Glass needs macOS 26") }
         let model = PlayerModel.offline()
         let transparency = PanelTransparency()
-        let window = await playerWindow(
-            for: model, reduceMotion: true, panelStyle: .glass, transparency: transparency
-        )
+        let window = await playerWindow(for: model, reduceMotion: true, transparency: transparency)
         defer { window.close() }
         let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
         for percentage in [PanelTransparency.defaultPercentage, 0, 40, 70, 90] {
@@ -397,14 +346,11 @@ final class OutputStatusLineTests: XCTestCase {
     }
 
     func testGlassPanelUsesSystemColoursInLightAndDarkMode() async throws {
-        guard #available(macOS 26, *) else { throw XCTSkip("Liquid Glass needs macOS 26") }
         let model = PlayerModel.offline()
         let appearanceSetting = PanelAppearance()
         await model.inspectOutput()
         XCTAssertFalse(model.statusIsError || model.statusIsWarning)
-        let window = await playerWindow(
-            for: model, reduceMotion: true, panelStyle: .glass, panelAppearance: appearanceSetting
-        )
+        let window = await playerWindow(for: model, reduceMotion: true, panelAppearance: appearanceSetting)
         defer { window.close() }
         let host = window.hostingView
         let line = try XCTUnwrap(descendant(OutputStatusLineView.self, in: host))
@@ -438,20 +384,9 @@ final class OutputStatusLineTests: XCTestCase {
             let fill = pixel(x: Int(PlayerView.padding / 2 * scale), y: bitmap.pixelsHigh / 2)
             XCTAssertEqual(fill.alphaComponent, reduced ? 1 : 0, accuracy: 0.02, "\(name) fill")
             if !reduced { XCTAssertEqual(edge.alphaComponent, 0, accuracy: 0.02, "\(name) border") }
-            var text = 0
-            var mint = 0
-            for y in 0..<bitmap.pixelsHigh {
-                for x in 0..<bitmap.pixelsWide {
-                    let color = pixel(x: x, y: y)
-                    if isDisplayTint(color) { mint += 1 }
-                    let components = [color.redComponent, color.greenComponent, color.blueComponent]
-                    // On glass the label colour is 70% to 90% opaque, so a premultiplied white is 0.7 at least.
-                    let isLabel = isDark ? components.allSatisfy { $0 > 0.65 } : components.allSatisfy { $0 < 0.15 }
-                    if color.alphaComponent > 0.65, isLabel { text += 1 }
-                }
-            }
-            XCTAssertEqual(mint, 0, "\(name): classic display tint")
-            XCTAssertGreaterThan(text, 500, "\(name): the display's text in the label colour")
+            XCTAssertGreaterThan(
+                displayTintPixels(in: bitmap, dark: isDark), 500, "\(name): the display's text in the label colour"
+            )
             attach(host, name: "Glass panel, \(name.rawValue)")
         }
         try await model.shutdown()
@@ -462,13 +397,14 @@ final class OutputStatusLineTests: XCTestCase {
                                 outputSelectionStore: UISelectionStore())
         let window = await playerWindow(for: model, reduceMotion: false)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
 
         let closedFrame = window.frame
         XCTAssertEqual(closedFrame.size, NSHostingView(rootView: PlayerView(player: model)).fittingSize)
         XCTAssertEqual(closedFrame.width, 426, accuracy: 0.5)
         XCTAssertFalse(model.showsAudioLevels)
-        assertPanelFillsWindow(host, settled: true, "Closed")
+        let displayTop = try XCTUnwrap(drawnRows(in: host)).top
+        assertPanelFillsWindow(window, displayTop: displayTop, settled: true, "Closed")
         let shownHeight = closedFrame.height + PlayerView.audioLevelsAddedHeight
 
         // Hiding once let the content fit the window too: the display was clipped and the window moved up.
@@ -482,11 +418,11 @@ final class OutputStatusLineTests: XCTestCase {
                 heights.insert(Int(window.frame.height.rounded()))
                 XCTAssertEqual(window.frame.maxY, closedFrame.maxY, accuracy: 0.5)
                 XCTAssertEqual(window.frame.width, 426, accuracy: 0.5)
-                assertPanelFillsWindow(host, settled: false, phase)
+                assertPanelFillsWindow(window, displayTop: displayTop, settled: false, phase)
             }
             XCTAssertGreaterThan(heights.count, 2, "The window should animate")
             XCTAssertEqual(window.frame.height, height, accuracy: 0.5)
-            assertPanelFillsWindow(host, settled: true, phase)
+            assertPanelFillsWindow(window, displayTop: displayTop, settled: true, phase)
             if showing { attach(host, name: "Audio levels shown") }
         }
         await settle(1)
@@ -501,6 +437,7 @@ final class OutputStatusLineTests: XCTestCase {
         defer { window.close() }
         let closedFrame = window.frame
         let shownHeight = closedFrame.height + PlayerView.audioLevelsAddedHeight
+        let displayTop = try XCTUnwrap(drawnRows(in: window.hostingView)).top
 
         model.toggleAudioLevels()
         await settle(0.1)
@@ -517,7 +454,7 @@ final class OutputStatusLineTests: XCTestCase {
         XCTAssertTrue(model.showsAudioLevels)
         XCTAssertEqual(window.frame.height, shownHeight, accuracy: 0.5)
         XCTAssertEqual(window.frame.maxY, closedFrame.maxY, accuracy: 0.5)
-        assertPanelFillsWindow(try XCTUnwrap(window.contentView), settled: true, "Shown")
+        assertPanelFillsWindow(window, displayTop: displayTop, settled: true, "Shown")
         try await model.shutdown()
     }
 
@@ -558,7 +495,7 @@ final class OutputStatusLineTests: XCTestCase {
         let model = await fullScalePlayer(source)
         let window = await playerWindow(for: model, reduceMotion: false)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
         let closedHeight = window.frame.height
         let shownHeight = closedHeight + PlayerView.audioLevelsAddedHeight
 
@@ -772,7 +709,7 @@ final class OutputStatusLineTests: XCTestCase {
         await model.refreshPlayback()
         let window = await playerWindow(for: model, reduceMotion: true)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
         let closedHeight = window.frame.height
         let bars = try XCTUnwrap(descendant(AudioLevelBarsView.self, in: host))
         XCTAssertFalse(bars.isRefreshing, "Hidden meters must not run a timer")
@@ -859,7 +796,7 @@ final class OutputStatusLineTests: XCTestCase {
         let model = await fullScalePlayer(source)
         let window = await playerWindow(for: model, reduceMotion: true)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
         let closedFrame = window.frame
         let shownFrame = PlayerWindow.resizedFrame(
             from: closedFrame, closedHeight: closedFrame.height, showingAudioLevels: true, visibleFrame: nil
@@ -914,7 +851,7 @@ final class OutputStatusLineTests: XCTestCase {
         XCTAssertEqual(model.state, .playing)
         let window = await playerWindow(for: model, reduceMotion: false)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
 
         model.toggleAudioLevels()
         await settle(0.4)
@@ -938,6 +875,12 @@ final class OutputStatusLineTests: XCTestCase {
     }
 
     func testAudioLevelPeakHoldIsThePowerButtonRed() async throws {
+        for selection in [PanelAppearance.Selection.light, .dark] {
+            try await assertPeakHoldIsThePowerButtonRed(selection)
+        }
+    }
+
+    private func assertPeakHoldIsThePowerButtonRed(_ selection: PanelAppearance.Selection) async throws {
         let source = UILevelSource()
         let model = PlayerModel(engine: UIEngine(), audioLevelSource: source, automaticallyMonitor: false,
                                 outputRateControl: UIRateControl(), outputSelectionStore: UISelectionStore())
@@ -945,37 +888,40 @@ final class OutputStatusLineTests: XCTestCase {
         await model.togglePlayback()
         await model.refreshPlayback()
         XCTAssertEqual(model.state, .playing)
-        let window = await playerWindow(for: model, reduceMotion: false)
+        let appearance = PanelAppearance()
+        appearance.setSelection(selection)
+        let window = await playerWindow(for: model, reduceMotion: false, panelAppearance: appearance)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
+        let mode = selection.rawValue
         model.toggleAudioLevels()
         await settle(0.4)
         let silent = litMeterPixels(in: host)
-        XCTAssertNil(drawnPeakHold(in: host), "Silent meters have no hold")
+        XCTAssertNil(drawnPeakHold(in: host), "\(mode): silent meters have no hold")
 
         // −6 dBFS lights 13 of the 20 segments, and the top one is the hold.
         // Segments are about 17 pt wide and 2 pt apart.
         source.level = AudioLevelPeaks(leftPeak: 16_423, rightPeak: 16_423)
         await model.refreshPlayback()
         await settle(0.1)
-        let peak = try XCTUnwrap(drawnPeakHold(in: host), "No hold at a new peak")
-        attach(host, name: "Peak hold at a new peak")
-        XCTAssertEqual(peak.span.upperBound - peak.span.lowerBound, 17, accuracy: 1.5, "One segment")
-        XCTAssertLessThanOrEqual(peak.span.lowerBound - peak.barEnd, 3, "The hold caps the bar")
-        XCTAssertEqual(peak.colour, try XCTUnwrap(powerButtonRed(in: host)), "The power button's red")
+        let peak = try XCTUnwrap(drawnPeakHold(in: host), "\(mode): no hold at a new peak")
+        attach(host, name: "Peak hold at a new peak, \(mode)")
+        XCTAssertEqual(peak.span.upperBound - peak.span.lowerBound, 17, accuracy: 1.5, "\(mode): one segment")
+        XCTAssertLessThanOrEqual(peak.span.lowerBound - peak.barEnd, 3, "\(mode): the hold caps the bar")
+        XCTAssertEqual(peak.colour, try XCTUnwrap(powerButtonRed(in: host)), "\(mode): the power button's red")
 
         // With no further poll the position stops 0.2 s later, so the bar falls while the hold stays.
         source.level = AudioLevelPeaks(leftPeak: 0, rightPeak: 0)
         await settle(0.6)
-        let falling = try XCTUnwrap(drawnPeakHold(in: host), "The hold went before 1.5 s")
-        attach(host, name: "Peak hold above the falling bar")
-        XCTAssertEqual(falling.span, peak.span, "The hold stays put")
-        XCTAssertGreaterThan(falling.span.lowerBound - falling.barEnd, 17, "Unlit segments below the hold")
+        let falling = try XCTUnwrap(drawnPeakHold(in: host), "\(mode): the hold went before 1.5 s")
+        attach(host, name: "Peak hold above the falling bar, \(mode)")
+        XCTAssertEqual(falling.span, peak.span, "\(mode): the hold stays put")
+        XCTAssertGreaterThan(falling.span.lowerBound - falling.barEnd, 17, "\(mode): unlit segments below the hold")
         XCTAssertEqual(falling.colour, peak.colour)
 
         await settle(1.3)
-        XCTAssertNil(drawnPeakHold(in: host), "The hold should drop after 1.5 s")
-        XCTAssertGreaterThan(litMeterPixels(in: host), silent + 100, "The bar is still falling")
+        XCTAssertNil(drawnPeakHold(in: host), "\(mode): the hold should drop after 1.5 s")
+        XCTAssertGreaterThan(litMeterPixels(in: host), silent + 100, "\(mode): the bar is still falling")
         try await model.shutdown()
     }
 
@@ -1014,7 +960,7 @@ final class OutputStatusLineTests: XCTestCase {
         )
         let window = await playerWindow(for: model, reduceMotion: false)
         defer { window.close() }
-        let host = try XCTUnwrap(window.contentView)
+        let host = window.hostingView
         await settle(0.1)
         let meter = try XCTUnwrap(audioLevelsAccessibilityElement(in: host))
         XCTAssertEqual(meter.accessibilityLabel(), "Audio levels")
@@ -1056,8 +1002,7 @@ final class OutputStatusLineTests: XCTestCase {
     }
 
     private func playerWindow(
-        for model: PlayerModel, reduceMotion: Bool, panelStyle: PanelStyle = .classic,
-        transparency: PanelTransparency = PanelTransparency(),
+        for model: PlayerModel, reduceMotion: Bool, transparency: PanelTransparency = PanelTransparency(),
         panelAppearance: PanelAppearance = PanelAppearance(),
         isMeterWindowVisible: (@MainActor (NSWindow) -> Bool)? = nil
     ) async -> PlayerWindow {
@@ -1066,8 +1011,8 @@ final class OutputStatusLineTests: XCTestCase {
                 NSScreen.screens.contains { $0.frame.intersects(window.frame) }
         }
         let window = PlayerWindow(
-            player: model, transparency: transparency, panelStyle: panelStyle,
-            panelAppearance: panelAppearance, reduceMotion: { reduceMotion },
+            player: model, transparency: transparency, panelAppearance: panelAppearance,
+            reduceMotion: { reduceMotion },
             isMeterWindowVisible: visibilityProbe
         )
         // `center()` picks the display in use, so pixel checks would vary with it; always use the sharpest.
@@ -1100,38 +1045,67 @@ final class OutputStatusLineTests: XCTestCase {
         try? await Task.sleep(for: .seconds(seconds))
     }
 
-    /// The panel fills the window with the display pinned to the top. A gap would show the transparent
-    /// window, and a clipped or shifted display would lose its white top border from the first row.
+    /// The player fills the glass with the display pinned to the top. A gap would show bare glass, and a
+    /// clipped or shifted display would move the readout's first drawn row from where the closed window has it.
     private func assertPanelFillsWindow(
-        _ view: NSView, settled: Bool, _ phase: String, file: StaticString = #filePath, line: UInt = #line
+        _ window: PlayerWindow, displayTop: CGFloat, settled: Bool, _ phase: String,
+        file: StaticString = #filePath, line: UInt = #line
     ) {
-        let column = middleColumn(in: view)
-        XCTAssertEqual(column.first.map(isWhite), true, "\(phase): display top border", file: file, line: line)
-        // Mid-animation the window's height can end partway through the last pixel row. A gap shows nothing,
-        // where the panel's fill is at least its translucent opacity.
-        let panelAlpha = PanelTransparency().opacity(
-            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-        )
-        XCTAssertTrue(column.dropLast().allSatisfy { $0.alphaComponent > panelAlpha - 0.02 }, "\(phase): gap",
-                      file: file, line: line)
+        let host = window.hostingView
+        XCTAssertEqual(window.contentView?.frame.size, window.frame.size, "\(phase): glass", file: file, line: line)
+        XCTAssertEqual(host.frame, window.contentView?.bounds, "\(phase): gap", file: file, line: line)
+        guard let rows = drawnRows(in: host) else {
+            XCTFail("\(phase): nothing drawn", file: file, line: line)
+            return
+        }
+        XCTAssertEqual(rows.top, displayTop, accuracy: 0.5, "\(phase): display moved", file: file, line: line)
+        // The first and last drawn rows sit a few points inside the padding: the top row's glyphs,
+        // and the transport symbols or the meters' scale at the bottom.
+        XCTAssertEqual(displayTop, PlayerView.padding + 4, accuracy: 4, "\(phase): display top", file: file, line: line)
         if settled {
-            XCTAssertEqual(column.last.map(isWhite), true, "\(phase): panel bottom border", file: file, line: line)
+            XCTAssertEqual(host.bounds.height - rows.bottom, PlayerView.padding + 4, accuracy: 4,
+                           "\(phase): bottom padding", file: file, line: line)
         }
     }
 
-    /// The middle pixel column, top to bottom.
-    private func middleColumn(in view: NSView) -> [NSColor] {
-        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return [] }
+    /// The top of the first and the bottom of the last point row drawn in the display colour. Each scan
+    /// stops at the first such row from its edge, so checks between animation frames stay quick.
+    private func drawnRows(in view: NSView) -> (top: CGFloat, bottom: CGFloat)? {
+        guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
         view.cacheDisplay(in: view.bounds, to: bitmap)
-        let x = bitmap.pixelsWide / 2
-        let transparent = NSColor(deviceRed: 0, green: 0, blue: 0, alpha: 0)
-        return (0..<bitmap.pixelsHigh).map { y in
-            bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) ?? transparent
+        let dark = isDark(view)
+        func isDrawn(_ y: Int) -> Bool {
+            (0..<bitmap.pixelsWide).contains { x in
+                bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB).map { isDisplayTint($0, dark: dark) } ?? false
+            }
         }
+        guard let first = (0..<bitmap.pixelsHigh).first(where: isDrawn),
+              let last = (0..<bitmap.pixelsHigh).reversed().first(where: isDrawn) else { return nil }
+        let scale = CGFloat(bitmap.pixelsHigh) / view.bounds.height
+        return (CGFloat(first) / scale, CGFloat(last + 1) / scale)
     }
 
-    private func isWhite(_ color: NSColor) -> Bool {
-        color.redComponent > 0.9 && color.greenComponent > 0.9 && color.blueComponent > 0.9
+    private func isDark(_ object: some NSAppearanceCustomization) -> Bool {
+        object.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
+    /// The display draws in the label colour, which on glass is 70% to 90% opaque, so a premultiplied white is
+    /// 0.7 at least. Unlit segments are far fainter.
+    private func isDisplayTint(_ color: NSColor, dark: Bool) -> Bool {
+        let components = [color.redComponent, color.greenComponent, color.blueComponent]
+        return color.alphaComponent > 0.65
+            && (dark ? components.allSatisfy { $0 > 0.65 } : components.allSatisfy { $0 < 0.15 })
+    }
+
+    private func displayTintPixels(in bitmap: NSBitmapImageRep, dark: Bool) -> Int {
+        var count = 0
+        for y in 0..<bitmap.pixelsHigh {
+            for x in 0..<bitmap.pixelsWide {
+                guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
+                if isDisplayTint(color, dark: dark) { count += 1 }
+            }
+        }
+        return count
     }
 
     /// Pixels below the transport buttons drawn in the display tint: labels, plus every lit segment.
@@ -1140,19 +1114,15 @@ final class OutputStatusLineTests: XCTestCase {
         view.cacheDisplay(in: view.bounds, to: bitmap)
         let scale = CGFloat(bitmap.pixelsHigh) / view.bounds.height
         let meterRows = Int(((PlayerView.audioLevelsAddedHeight + PlayerView.padding) * scale).rounded())
+        let dark = isDark(view)
         var count = 0
         for y in (bitmap.pixelsHigh - meterRows)..<bitmap.pixelsHigh {
             for x in 0..<bitmap.pixelsWide {
                 guard let color = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { continue }
-                if isDisplayTint(color) { count += 1 }
+                if isDisplayTint(color, dark: dark) { count += 1 }
             }
         }
         return count
-    }
-
-    private func isDisplayTint(_ color: NSColor) -> Bool {
-        color.greenComponent > 0.75 && color.redComponent > 0.45 && color.redComponent < color.greenComponent
-            && color.blueComponent < color.greenComponent
     }
 
     /// Points of the L and R bars drawn lit, in the display tint or the peak hold's red, sampled once per
@@ -1164,12 +1134,13 @@ final class OutputStatusLineTests: XCTestCase {
         // The meters start a row gap below the transport buttons. The two 12 pt bars and the 4 pt between
         // them come first, and each bar starts after its legend column and gap.
         let top = closedHeight - PlayerView.padding + PlayerView.audioLevelsAddedHeight - PlayerView.audioLevelsHeight
+        let dark = isDark(view)
         var count = 0
         for y in stride(from: top, to: min(top + 28, view.bounds.height), by: 1) {
             for x in stride(from: PlayerView.padding + 15, to: view.bounds.width - PlayerView.padding, by: 1) {
                 guard let color = bitmap.colorAt(x: Int((x + 0.5) * scale), y: Int((y + 0.5) * scale))?
                     .usingColorSpace(.deviceRGB) else { continue }
-                if isDisplayTint(color) || isPowerRed(color) { count += 1 }
+                if isDisplayTint(color, dark: dark) || isPowerRed(color) { count += 1 }
             }
         }
         return count
@@ -1180,8 +1151,10 @@ final class OutputStatusLineTests: XCTestCase {
         return view.subviews.lazy.compactMap { self.audioLevelsAccessibilityElement(in: $0) }.first
     }
 
+    /// The system red in either appearance, which the display's colour space lifts to about 0.4 green in Dark Mode.
     private func isPowerRed(_ color: NSColor) -> Bool {
-        color.redComponent > 0.75 && color.greenComponent < 0.4 && color.blueComponent < 0.45
+        color.redComponent > 0.75 && color.redComponent - color.greenComponent > 0.35
+            && color.redComponent - color.blueComponent > 0.35
     }
 
     private func eightBit(_ color: NSColor) -> [Int] {
@@ -1191,7 +1164,7 @@ final class OutputStatusLineTests: XCTestCase {
     /// The meters' red pixels, which only the peak hold draws. Positions are in points from the left.
     private struct DrawnPeakHold {
         let span: ClosedRange<CGFloat>
-        /// The right end of the mint bar in the hold's pixel rows.
+        /// The right end of the lit bar in the hold's pixel rows.
         let barEnd: CGFloat
         /// The hold's most common colour, as 8-bit device RGB.
         let colour: [Int]
@@ -1202,6 +1175,7 @@ final class OutputStatusLineTests: XCTestCase {
         view.cacheDisplay(in: view.bounds, to: bitmap)
         let scale = CGFloat(bitmap.pixelsHigh) / view.bounds.height
         let meterRows = Int(((PlayerView.audioLevelsAddedHeight + PlayerView.padding) * scale).rounded())
+        let dark = isDark(view)
         var red: [Int] = []
         var barEnd = 0
         var colours: [[Int]: Int] = [:]
@@ -1213,7 +1187,7 @@ final class OutputStatusLineTests: XCTestCase {
                 if isPowerRed(color) {
                     rowRed.append(x)
                     colours[eightBit(color), default: 0] += 1
-                } else if isDisplayTint(color) {
+                } else if isDisplayTint(color, dark: dark) {
                     rowBarEnd = x + 1
                 }
             }

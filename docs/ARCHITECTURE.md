@@ -162,12 +162,16 @@ formats. It is used only for approved crash-recovery tests.
    handles `performMiniaturize` by calling `miniaturize` directly: the
    standard implementation expects a title-bar button. Native Dock
    minimization/restoration and their visibility notifications are preserved.
-   The window is non-opaque with a clear background. `PlayerPanelBackground`
-   observes CDKit's `PanelTransparency`: a 0–90% transparency setting, initially
-   15% when no preference is saved, persisted as `BackgroundTransparency` in
-   the app's defaults. The app delegate shares that model with the window and
-   View menu. SwiftUI command menus cannot host sliders on all supported macOS
-   releases, so
+   The window is non-opaque with a clear background. Its content view is an
+   `NSGlassEffectView` (clear style, 16 pt corners) whose `contentView` is the
+   hosting view, resized by its autoresizing mask. CDKit's `PanelTransparency`
+   holds a 0–90% transparency setting, initially 15% when no preference is
+   saved, persisted as `BackgroundTransparency` in the app's defaults. The app
+   delegate shares that model with the window and View menu. `PlayerWindow`
+   subscribes to it and sets the glass `tintColor` to `windowBackgroundColor`
+   with its opacity scaled by 1 − percentage/100, through a dynamic colour so
+   the tint follows Light and Dark Mode. SwiftUI command menus cannot host
+   sliders, so
    `PanelTransparencyMenuController` lazily creates the AppKit slider view
    the first time the submenu opens, then appends it with a separator after
    SwiftUI's Reset to 15% item. This avoids the slider's memory cost in
@@ -176,43 +180,36 @@ formats. It is used only for approved crash-recovery tests.
    re-places the item whenever the submenu's items change, not only when
    tracking begins. `MenuTrackingSlider` tracks its own drag until mouse-up,
    because recent macOS routes `NSSlider` events to an internal view that can
-   stay stuck after a release outside the menu. The slider updates the
-   background while the menu stays open, and VoiceOver can step it with the
+   stay stuck after a release outside the menu. The slider updates the glass
+   tint while the menu stays open, and VoiceOver can step it with the
    slider's increment and decrement actions.
-   Text, buttons, the border and meters retain their existing opacity.
-   Reduce transparency makes the background solid and disables adjustments
-   without overwriting the saved level. Resize steps still invalidate the
-   window shadow.
-   On macOS 26 or later, `PanelStyle.current` is `.glass`. `PlayerWindow`
-   makes an `NSGlassEffectView` (clear style, 16 pt corners) the window's
-   content view and the hosting view its `contentView`, resized by its
-   autoresizing mask. It subscribes to `PanelTransparency` and sets the glass
-   `tintColor` to `windowBackgroundColor` with its opacity scaled by
-   1 − percentage/100, through a dynamic colour so the tint follows Light and
-   Dark Mode. `PlayerPanelBackground` then draws nothing, or under Reduce
-   transparency a solid window-background rounded rectangle, and the white
-   border is omitted. Each style has a `PlayerPalette` (`App/PanelStyle.swift`)
-   built once, because the views skip updates with equal colours and dynamic
-   colours are equal only to themselves. The glass palette uses `labelColor`,
-   `secondaryLabelColor` and `systemRed`; dimmed variants scale opacity with
-   a dynamic provider, since `withAlphaComponent` would fix a system colour to
-   one appearance. Core Animation layers in `AudioLevelBarsView` and
-   `OutputStatusLine` cannot follow dynamic colours, so they resolve them on
-   creation, when moved to a window and when the effective appearance
-   changes. They resolve in the window's appearance (`layerColorAppearance`):
-   on glass, SwiftUI gives hosted AppKit views a vibrant appearance whose
-   colours rely on vibrancy blending, which layers do not do. macOS 14 and 15
-   use `.classic`, the dark green panel described above.
-   View > Appearance offers Follow System, Light and Dark only on macOS 26
-   or later. CDKit's `PanelAppearance` stores the selection under
-   `PanelAppearance` in defaults, initially `system`; invalid saved values
-   are logged and repaired. The app delegate shares it with the command
-   menu and window. The glass window subscribes to its published selection,
-   setting only its own `NSWindow.appearance` to Aqua or Dark Aqua, or `nil`
-   to resume inheritance from macOS. This also updates the glass tint,
-   SwiftUI colours and AppKit layers. The classic window ignores the
-   selection. Application appearance, transparency, audio and window size
-   are untouched; Reduce transparency still uses a solid fill in the
+   Text, buttons and meters retain their opacity. `PlayerPanelBackground`
+   draws nothing over the glass, or under Reduce transparency a solid
+   window-background rounded rectangle; Reduce transparency also disables
+   adjustments without overwriting the saved level. Resize steps still
+   invalidate the window shadow.
+   `PlayerPalette` (`App/PlayerPalette.swift`) is built once, because the
+   views skip updates with equal colours and dynamic colours are equal only
+   to themselves. It uses `labelColor`, `secondaryLabelColor` and
+   `systemRed`; dimmed variants scale opacity with a dynamic provider, since
+   `withAlphaComponent` would fix a system colour to one appearance. Core
+   Animation layers in `AudioLevelBarsView` and `OutputStatusLine` cannot
+   follow dynamic colours, so they resolve them on creation, when moved to a
+   window and when the effective appearance changes. They resolve label
+   colours in the window's appearance (`layerColorAppearance`): on glass,
+   SwiftUI gives hosted AppKit views a vibrant appearance whose label colours
+   rely on vibrancy blending, which layers do not do. The red needs no
+   blending, so `AudioLevelBarsView` resolves the peak hold in its own vibrant
+   appearance, matching the power symbol AppKit draws there.
+   View > Appearance offers Follow System, Light and Dark. CDKit's
+   `PanelAppearance` stores the selection under `PanelAppearance` in
+   defaults, initially `system`; invalid saved values are logged and
+   repaired. The app delegate shares it with the command menu and window.
+   The window subscribes to its published selection, setting only its own
+   `NSWindow.appearance` to Aqua or Dark Aqua, or `nil` to resume
+   inheritance from macOS. This also updates the glass tint, SwiftUI colours
+   and AppKit layers. Application appearance, transparency, audio and window
+   size are untouched; Reduce transparency still uses a solid fill in the
    selected appearance.
 7. **Status.** `PlayerModel` polls the engine snapshot every 100 ms for the
    current frame, buffering, end of disc and concealed sectors, and derives
@@ -426,7 +423,7 @@ stopped or paused.
 
 | Change | Start in |
 |---|---|
-| Layout, colours, buttons, audio-level meters | `App/PlayerView.swift`, `App/PanelStyle.swift`, `App/TransportButton.swift`, `App/OutputStatusLine.swift`, `OutputLineLayout.swift` |
+| Layout, colours, buttons, audio-level meters | `App/PlayerView.swift`, `App/PlayerPalette.swift`, `App/TransportButton.swift`, `App/OutputStatusLine.swift`, `OutputLineLayout.swift` |
 | Window, Liquid Glass host, panel preferences | `App/PlayerWindow.swift`, `App/PanelTransparencyMenu.swift`, `Sources/CDKit/PanelTransparency.swift`, `Sources/CDKit/PanelAppearance.swift` |
 | Menus and shortcuts | `App/PlayerCommands.swift`, `App/CDPlayerApp.swift` |
 | Transport rules, display strings, drive selection | `Sources/CDKit/PlayerModel.swift` |

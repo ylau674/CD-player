@@ -26,9 +26,9 @@ struct OutputStatusLine: NSViewRepresentable {
         /// The widest the name may be shown; a longer name scrolls within this width.
         var maximumNameWidth: Double = .infinity
         /// The normal status, the name and its indicator.
-        var tint: NSColor = PlayerPalette.classic.status
+        var tint: NSColor = PlayerPalette.glass.status
         /// The name and its indicator while the output cannot be changed.
-        var dimmedTint: NSColor = PlayerPalette.classic.dimmedStatus
+        var dimmedTint: NSColor = PlayerPalette.glass.dimmedStatus
     }
 
     let content: Content

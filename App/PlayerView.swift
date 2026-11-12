@@ -2,36 +2,26 @@ import AppKit
 import CDKit
 import SwiftUI
 
+/// The window's Liquid Glass is the panel. With Reduce transparency on, a solid window background covers it.
 struct PlayerPanelBackground: View {
-    @ObservedObject var transparency: PanelTransparency
     let reduceTransparency: Bool
-    let style: PanelStyle
 
     var body: some View {
-        switch style {
-        case .classic:
-            RoundedRectangle(cornerRadius: style.cornerRadius)
-                .fill(Color(nsColor: style.palette.panel)
-                    .opacity(transparency.opacity(reduceTransparency: reduceTransparency)))
-        case .glass:
-            // The window's glass draws the panel and applies the transparency setting as its tint.
-            if reduceTransparency {
-                RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
-                    .fill(Color(nsColor: style.palette.panel))
-            } else {
-                Color.clear
-            }
+        if reduceTransparency {
+            RoundedRectangle(cornerRadius: PlayerView.cornerRadius, style: .continuous)
+                .fill(Color(nsColor: PlayerPalette.glass.panel))
+        } else {
+            Color.clear
         }
     }
 }
 
 struct PlayerView: View {
     @ObservedObject var player: PlayerModel
-    @ObservedObject var transparency = PanelTransparency()
-    var panelStyle = PanelStyle.current
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    private var palette: PlayerPalette { panelStyle.palette }
+    private let palette = PlayerPalette.glass
+    static let cornerRadius: CGFloat = 16
     private static let width: CGFloat = 426
     static let padding: CGFloat = 18
     private static let rowSpacing: CGFloat = 10
@@ -58,17 +48,7 @@ struct PlayerView: View {
         // Only the window sets its height. The panel fills it, with the rows pinned to its top.
         .frame(maxHeight: .infinity, alignment: .top)
         .background {
-            PlayerPanelBackground(
-                transparency: transparency, reduceTransparency: reduceTransparency, style: panelStyle
-            )
-        }
-        .overlay {
-            // Liquid Glass draws its own edge.
-            if panelStyle == .classic {
-                RoundedRectangle(cornerRadius: panelStyle.cornerRadius)
-                    .strokeBorder(.white, lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
+            PlayerPanelBackground(reduceTransparency: reduceTransparency)
         }
     }
 

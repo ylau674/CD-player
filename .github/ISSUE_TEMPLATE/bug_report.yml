@@ -21,7 +21,7 @@ body:
     id: macos
     attributes:
       label: macOS version and Mac model
-      placeholder: "macOS 15.5, MacBook Air M2"
+      placeholder: "macOS 26.1, MacBook Air M2"
     validations:
       required: true
   - type: input

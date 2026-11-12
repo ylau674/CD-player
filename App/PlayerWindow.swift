@@ -6,7 +6,7 @@ import SwiftUI
 
 @MainActor
 final class PlayerWindow: NSWindow {
-    /// The player, which is the content view or, with Liquid Glass, the glass's content.
+    /// The player, which is the content of the window's Liquid Glass.
     let hostingView: PlayerHostingView
     private let player: PlayerModel
     private let reduceMotion: @MainActor () -> Bool
@@ -26,7 +26,6 @@ final class PlayerWindow: NSWindow {
     init(
         player: PlayerModel,
         transparency: PanelTransparency = PanelTransparency(),
-        panelStyle: PanelStyle = .current,
         panelAppearance: PanelAppearance = PanelAppearance(),
         reduceMotion: @escaping @MainActor () -> Bool = { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion },
         isMeterWindowVisible: @escaping @MainActor (NSWindow) -> Bool = { window in
@@ -36,9 +35,7 @@ final class PlayerWindow: NSWindow {
                 }
         }
     ) {
-        let content = PlayerHostingView(
-            rootView: PlayerView(player: player, transparency: transparency, panelStyle: panelStyle)
-        )
+        let content = PlayerHostingView(rootView: PlayerView(player: player))
         // Measured first: without its intrinsic size the hosting view no longer reports a fit.
         let closedSize = content.fittingSize
         // The window alone sets its height as the audio levels show or hide. Fitting the window to the
@@ -55,32 +52,28 @@ final class PlayerWindow: NSWindow {
             backing: .buffered, defer: false
         )
         title = "CD Player"
-        if panelStyle == .glass, #available(macOS 26, *) {
-            let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: closedSize))
-            glass.style = .clear
-            glass.cornerRadius = panelStyle.cornerRadius
-            content.frame = glass.bounds
-            content.autoresizingMask = [.width, .height]
-            glass.contentView = content
-            contentView = glass
-            // The setting tints the glass toward the window background, as it sets the classic panel's opacity.
-            // `@Published` sends the new value before storing it, so the tint uses the value it is given.
-            glassTintSubscription = transparency.$percentage.sink { [weak glass] percentage in
-                MainActor.assumeIsolated {
-                    glass?.tintColor = PlayerPalette.glass.panel.scalingAlpha(by: 1 - percentage / 100)
+        let glass = NSGlassEffectView(frame: NSRect(origin: .zero, size: closedSize))
+        glass.style = .clear
+        glass.cornerRadius = PlayerView.cornerRadius
+        content.frame = glass.bounds
+        content.autoresizingMask = [.width, .height]
+        glass.contentView = content
+        contentView = glass
+        // The setting tints the glass toward the window background.
+        // `@Published` sends the new value before storing it, so the tint uses the value it is given.
+        glassTintSubscription = transparency.$percentage.sink { [weak glass] percentage in
+            MainActor.assumeIsolated {
+                glass?.tintColor = PlayerPalette.glass.panel.scalingAlpha(by: 1 - percentage / 100)
+            }
+        }
+        appearanceSubscription = panelAppearance.$selection.sink { [weak self] selection in
+            MainActor.assumeIsolated {
+                self?.appearance = switch selection {
+                case .system: nil
+                case .light: NSAppearance(named: .aqua)
+                case .dark: NSAppearance(named: .darkAqua)
                 }
             }
-            appearanceSubscription = panelAppearance.$selection.sink { [weak self] selection in
-                MainActor.assumeIsolated {
-                    self?.appearance = switch selection {
-                    case .system: nil
-                    case .light: NSAppearance(named: .aqua)
-                    case .dark: NSAppearance(named: .darkAqua)
-                    }
-                }
-            }
-        } else {
-            contentView = content
         }
         isOpaque = false
         backgroundColor = .clear

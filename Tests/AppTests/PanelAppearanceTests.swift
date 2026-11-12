@@ -6,7 +6,6 @@ import XCTest
 @MainActor
 final class PanelAppearanceTests: XCTestCase {
     func testMenuSelectionAppliesImmediatelyAndPersistsWithoutChangingTransparency() async throws {
-        guard #available(macOS 26, *) else { throw XCTSkip("Liquid Glass needs macOS 26") }
         let suite = "CDPlayerUITests.Appearance.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -15,9 +14,7 @@ final class PanelAppearanceTests: XCTestCase {
         let setting = PanelAppearance(defaults: defaults)
         let transparency = PanelTransparency(defaults: defaults)
         let player = PlayerModel.offline()
-        let window = PlayerWindow(
-            player: player, transparency: transparency, panelStyle: .glass, panelAppearance: setting
-        )
+        let window = PlayerWindow(player: player, transparency: transparency, panelAppearance: setting)
         defer { window.close() }
         let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
         let application = NSApplication.shared
@@ -58,14 +55,13 @@ final class PanelAppearanceTests: XCTestCase {
     }
 
     func testFollowSystemTracksAppearanceAndOverridesAreConfinedToGlassWindow() async throws {
-        guard #available(macOS 26, *) else { throw XCTSkip("Liquid Glass needs macOS 26") }
         let application = NSApplication.shared
         let original = application.appearance
         defer { application.appearance = original }
         application.appearance = NSAppearance(named: .aqua)
         let setting = PanelAppearance()
         let player = PlayerModel.offline()
-        let window = PlayerWindow(player: player, panelStyle: .glass, panelAppearance: setting)
+        let window = PlayerWindow(player: player, panelAppearance: setting)
         let other = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 100, height: 100),
             styleMask: [.borderless], backing: .buffered, defer: false
@@ -86,28 +82,6 @@ final class PanelAppearanceTests: XCTestCase {
                 XCTAssertNil(other.appearance)
                 XCTAssertEqual(other.effectiveAppearance.name, inheritedName)
                 XCTAssertEqual(application.appearance?.name, inheritedName)
-            }
-        }
-        try await player.shutdown()
-    }
-
-    func testClassicWindowIgnoresTheGlassAppearancePreference() async throws {
-        let setting = PanelAppearance()
-        setting.setSelection(.dark)
-        let player = PlayerModel.offline()
-        let window = PlayerWindow(player: player, panelStyle: .classic, panelAppearance: setting)
-        defer { window.close() }
-        for selection in PanelAppearance.Selection.allCases {
-            setting.setSelection(selection)
-            XCTAssertNil(window.appearance)
-            XCTAssertTrue(window.contentView === window.hostingView)
-            XCTAssertEqual(window.hostingView.rootView.panelStyle, .classic)
-        }
-        if #available(macOS 14.4, *) {
-            if #unavailable(macOS 26) {
-                let menu = NSHostingMenu(rootView: PanelAppearanceCommands(appearance: setting))
-                menu.update()
-                XCTAssertTrue(menu.items.isEmpty)
             }
         }
         try await player.shutdown()

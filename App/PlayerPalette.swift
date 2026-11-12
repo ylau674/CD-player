@@ -1,22 +1,8 @@
 import AppKit
 
-/// How the player's panel is drawn. Liquid Glass needs macOS 26; earlier releases keep the dark green panel.
-enum PanelStyle: Equatable {
-    /// A dark green panel with a white border and a pale green display.
-    case classic
-    /// Clear Liquid Glass tinted toward the window background, in system colours that follow Light and Dark Mode.
-    case glass
-
-    static var current: PanelStyle {
-        if #available(macOS 26, *) { .glass } else { .classic }
-    }
-
-    var cornerRadius: CGFloat { self == .glass ? 16 : 10 }
-    var palette: PlayerPalette { self == .glass ? .glass : .classic }
-}
-
-/// The player's colours. Each palette is built once: the views skip updates whose colours are equal, and two
-/// dynamic colours are equal only when they are the same instance.
+/// The player's colours on its clear Liquid Glass panel: system colours that follow Light and Dark Mode.
+/// The palette is built once: the views skip updates whose colours are equal, and two dynamic colours are
+/// equal only when they are the same instance.
 struct PlayerPalette {
     /// The drive row, track and time, transport symbols, rate icon and lit meter segments.
     let display: NSColor
@@ -31,20 +17,8 @@ struct PlayerPalette {
     let unlitSegment: NSColor
     let outline: NSColor
     let disabledOutline: NSColor
-    /// The classic panel's fill, or the tint of the glass, before the transparency setting applies.
+    /// The glass's tint before the transparency setting applies, and the solid panel with Reduce transparency.
     let panel: NSColor
-
-    static let classic: PlayerPalette = {
-        let display = NSColor(srgbRed: 0.65, green: 0.95, blue: 0.75, alpha: 1)
-        return PlayerPalette(
-            display: display, dimmedDisplay: display.scalingAlpha(by: 0.35),
-            status: display, dimmedStatus: display.scalingAlpha(by: 0.45),
-            power: NSColor(srgbRed: 1, green: 0.09, blue: 0.18, alpha: 1),
-            unlitSegment: display.scalingAlpha(by: 0.18),
-            outline: display.scalingAlpha(by: 0.7), disabledOutline: display.scalingAlpha(by: 0.2),
-            panel: NSColor(srgbRed: 0.04, green: 0.09, blue: 0.07, alpha: 1)
-        )
-    }()
 
     static let glass = PlayerPalette(
         display: .labelColor, dimmedDisplay: NSColor.labelColor.scalingAlpha(by: 0.35),

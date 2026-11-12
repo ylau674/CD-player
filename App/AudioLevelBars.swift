@@ -107,7 +107,10 @@ final class AudioLevelBarsView: NSView {
 
     /// Recolours every segment, but only when its colour in the current appearance has changed.
     private func resolveColors() {
-        let resolved = colors.mapValues { $0.resolved(for: layerColorAppearance).cgColor }
+        var resolved = colors.mapValues { $0.resolved(for: layerColorAppearance).cgColor }
+        // The power button draws its red in the vibrant appearance the glass gives this view too. Unlike the
+        // label colours, that red needs no vibrancy blending, so the hold draws it flat and still matches.
+        resolved[.peakHold] = colors[.peakHold]?.resolved(for: effectiveAppearance).cgColor
         guard resolved != resolvedColors else { return }
         resolvedColors = resolved
         for (layer, state) in zip(segmentLayers, shownStates) {

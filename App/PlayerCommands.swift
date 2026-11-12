@@ -85,17 +85,15 @@ struct PanelAppearanceCommands: View {
     @ObservedObject var appearance: PanelAppearance
 
     var body: some View {
-        if #available(macOS 26, *) {
-            Picker("Appearance", selection: Binding(
-                get: { appearance.selection },
-                set: { appearance.setSelection($0) }
-            )) {
-                Text("Follow System").tag(PanelAppearance.Selection.system)
-                Text("Light").tag(PanelAppearance.Selection.light)
-                Text("Dark").tag(PanelAppearance.Selection.dark)
-            }
-            .pickerStyle(.menu)
-            .help("Choose the appearance of the Liquid Glass player window without changing macOS.")
+        Picker("Appearance", selection: Binding(
+            get: { appearance.selection },
+            set: { appearance.setSelection($0) }
+        )) {
+            Text("Follow System").tag(PanelAppearance.Selection.system)
+            Text("Light").tag(PanelAppearance.Selection.light)
+            Text("Dark").tag(PanelAppearance.Selection.dark)
         }
+        .pickerStyle(.menu)
+        .help("Choose the appearance of the Liquid Glass player window without changing macOS.")
     }
 }

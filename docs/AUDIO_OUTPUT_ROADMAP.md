@@ -168,7 +168,7 @@ CD PLAYING                                        N-50 ▾ [rate]
 
   - "Speakers" means a "Speaker" terminal or "speaker" in the device name,
     the 1.0.0 test. All of these symbols are available from macOS 11, below
-    the app's macOS 14 minimum.
+    the app's minimum.
   - This replaces the 1.0.0 waveform for built-in speakers. It also settles
     the open question about the PRO X: the headset reports a "Speaker"
     terminal, but a USB output shows the USB symbol whatever its terminal.
