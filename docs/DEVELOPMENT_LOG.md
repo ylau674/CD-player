@@ -6392,3 +6392,54 @@ owner chose the window-only capture.
 It replaces `docs/images/audio-levels.png`, still shown at 472 points, and the
 README caption describes it. No disc was read, and nothing was played or
 installed.
+
+## Version 1.4.0 (2026-11-12)
+
+The owner asked to publish the Liquid Glass work and install it in
+Applications, and chose version 1.4.0. It ships the three changes above: the
+Liquid Glass panel with View › Appearance, the Apple-silicon-only build and
+the removal of the dark green panel with the move to macOS 26 Tahoe.
+Playback is unchanged. Version 1.3.5 stays available for Intel Macs and for
+macOS 14 and 15.
+
+The 467 CDKit and 29 AudioCheck tests pass normally and under both
+AddressSanitizer and ThreadSanitizer, and all 36 native UI tests pass. These
+runs used the tree that was packaged, with the version and build number
+already changed.
+
+Version 1.4.0 (build 10) is packaged as `CDPlayer-1.4.0-macOS.zip`. The
+packaging script confirmed the bundle identifier, the credits and the
+copyright string, and that the app is `arm64` only. The extracted app was
+checked for:
+
+- version 1.4.0, build 10 and the bundle identifier;
+- `LSMinimumSystemVersion` 26.0, and `minos 26.0` in the executable;
+- the `arm64` architecture only;
+- a strictly valid ad-hoc signature with the hardened runtime;
+- no home-folder paths or personal names in its binary.
+
+The package SHA-256 is:
+
+```text
+d4ac60a9974320c40c4cc6a3de28397248014d50078b3af5056e647286895266
+```
+
+`docs/PUBLISHING.md` no longer names a latest release, which had gone stale;
+it now points to the releases page.
+
+With no CD Player running and no `ChangedOutputRates` record pending, the app
+from the ZIP was installed as `/Applications/CDPlayer.app`. No copy was
+installed there beforehand. The installed app:
+
+- reports 1.4.0 (build 10), `arm64` only and the bundle identifier
+  `io.github.ylau674.CDPlayer`;
+- is identical to the ZIP's app;
+- passes strict code-signature verification with an ad-hoc signature and the
+  hardened runtime, with CDHash `3949037a06d080d413de8a58555cdaa7f7205abf`;
+- has no quarantine flag. `spctl` rejects it, as expected for an app that is
+  not notarized.
+
+The settings domain is unchanged, so the saved appearance, background
+transparency, output choice and Decode HDCD setting carry over from the
+earlier test builds. macOS may ask for removable-volume access at the first
+Play. The app was not launched as part of the installation.
