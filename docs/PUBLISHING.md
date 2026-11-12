@@ -10,8 +10,8 @@ and what remains before and after making the repository public.
   2026-11-04.
 - It was created on 2026-11-04 with fresh history: a squashed version 1.3.3
   commit followed by documentation updates, authored as `ylau674` with the
-  GitHub no-reply address.
-  `v1.3.3` is the latest release.
+  GitHub no-reply address. `v1.3.3` was the first public release; later
+  releases are on the [releases page](https://github.com/ylau674/CD-player/releases).
 - The development history and releases 1.0.0–1.3.2 are in the private
   repository `ylau674/CD-player-private`, which stays private. It was named
   `CD-player-archive` at publication and now also holds work under private

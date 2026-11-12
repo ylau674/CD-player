@@ -6,7 +6,7 @@ PROJECT="$ROOT/CDPlayer.xcodeproj"
 DERIVED_DATA="$ROOT/build/DerivedData/Release"
 APP="$DERIVED_DATA/Build/Products/Release/CDPlayer.app"
 PACKAGE_DIR="$ROOT/build/packages"
-VERSION="1.3.5"
+VERSION="1.4.0"
 BUNDLE_ID="io.github.ylau674.CDPlayer"
 ZIP="$PACKAGE_DIR/CDPlayer-$VERSION-macOS.zip"
 

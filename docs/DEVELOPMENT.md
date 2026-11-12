@@ -520,9 +520,9 @@ subtasks in build order with explicit prerequisites. For each subtask:
 | Memory, OUTPUT LOST, meter layers | Version 1.3.2: playback returns its read-ahead memory to macOS when not playing; a missing saved output is replaced by the fallback on Play, so `OUTPUT LOST` no longer repeats at launch; each meter segment is a Core Animation layer, taking Release CPU with the meters shown from 3.9% to 2.7%. |
 | Public release | Version 1.3.3: Apache-2.0 licence, About-panel credits with libhdcd's BSD notices, bundle identifier `io.github.ylau674.CDPlayer`, contributing and security files, personal data redacted, published with fresh history. |
 | Translucent panel | Version 1.3.5: the panel's background is adjustable from 0% to 90% with a View menu slider and remembered; new installations start at 15% transparency; text, buttons and meters stay solid. |
-| Liquid Glass panel | Unreleased: the panel is clear Liquid Glass in system colours, without the border; View > Appearance remembers Follow System / Light / Dark for the player window; the transparency slider independently sets the glass tint. |
-| Apple silicon only | Unreleased: the app is built for `arm64` only, and the release script fails on any other architecture; Intel Macs keep 1.3.5. |
-| Liquid Glass only | Unreleased: the dark green panel is removed and the app requires macOS 26 Tahoe; macOS 14 and 15 keep 1.3.5; the peak hold matches the power button's vibrant red. |
+| Liquid Glass panel | Version 1.4.0: the panel is clear Liquid Glass in system colours, without the border; View > Appearance remembers Follow System / Light / Dark for the player window; the transparency slider independently sets the glass tint. |
+| Apple silicon only | Version 1.4.0: the app is built for `arm64` only, and the release script fails on any other architecture; Intel Macs keep 1.3.5. |
+| Liquid Glass only | Version 1.4.0: the dark green panel is removed and the app requires macOS 26 Tahoe; macOS 14 and 15 keep 1.3.5; the peak hold matches the power button's vibrant red. |
 
 The [development log](DEVELOPMENT_LOG.md) holds the full detail and evidence
 for every row.

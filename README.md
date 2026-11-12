@@ -21,7 +21,7 @@ concealment instead of noisy re-reads.
 is attached, so the display reads NO DRIVE. The meters stay dark while
 stopped.*
 
-**Status:** [version 1.3.5 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.5).
+**Status:** [version 1.4.0 is released](https://github.com/ylau674/CD-player/releases/tag/v1.4.0).
 M6.1–M6.5, M8 and M9 are complete and hardware-checked on one
 Mac with a Pioneer BDR-XS07U drive. Tested outputs include the built-in
 speakers and wired headphones, beyerdynamic PRO X, Sony WALKMAN USB DAC,
@@ -32,13 +32,13 @@ See the [changelog](CHANGELOG.md), [audio-output validation record](docs/AUDIO_O
 [HDCD validation record](docs/HDCD_ROADMAP.md)
 and [known limitations](#known-limitations).
 
-The player panel is now Liquid Glass in the clear style, with system text
-colours and no border. View › Appearance offers Follow System (the default),
-Light and Dark, remembered across launches. The choice affects only the player
-window, not macOS. View › Background Transparency independently sets how
-strongly the glass is tinted toward the window background. The dark green panel
-of version 1.3.5 and earlier is removed, so the app now requires macOS 26
-Tahoe. Playback is unchanged.
+Version 1.4.0 makes the player panel Liquid Glass in the clear style, with
+system text colours and no border. View › Appearance offers Follow System (the
+default), Light and Dark, remembered across launches. The choice affects only
+the player window, not macOS. View › Background Transparency independently
+sets how strongly the glass is tinted toward the window background. The dark
+green panel of version 1.3.5 and earlier is removed, so 1.4.0 requires macOS
+26 Tahoe on Apple silicon. Playback is unchanged.
 
 The panel starts at 15% transparency on a new installation (existing saved
 settings are preserved). The slider goes from solid to 90%, and the level is
@@ -237,7 +237,7 @@ runtime and an ad-hoc signature. It verifies the build, including that the app
 contains no other architecture, and writes
 `build/packages/CDPlayer-<version>-macOS.zip`. Install by dragging
 `CDPlayer.app` from the ZIP into `/Applications`.
-The current [1.3.5 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.5/CDPlayer-1.3.5-macOS.zip)
+The current [1.4.0 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.4.0/CDPlayer-1.4.0-macOS.zip)
 is also available on GitHub. Compare its SHA-256 with the digest on the
 release page; see [security](SECURITY.md).
 
