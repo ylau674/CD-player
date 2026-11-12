@@ -6426,3 +6426,20 @@ d4ac60a9974320c40c4cc6a3de28397248014d50078b3af5056e647286895266
 
 `docs/PUBLISHING.md` no longer names a latest release, which had gone stale;
 it now points to the releases page.
+
+With no CD Player running and no `ChangedOutputRates` record pending, the app
+from the ZIP was installed as `/Applications/CDPlayer.app`. No copy was
+installed there beforehand. The installed app:
+
+- reports 1.4.0 (build 10), `arm64` only and the bundle identifier
+  `io.github.ylau674.CDPlayer`;
+- is identical to the ZIP's app;
+- passes strict code-signature verification with an ad-hoc signature and the
+  hardened runtime, with CDHash `3949037a06d080d413de8a58555cdaa7f7205abf`;
+- has no quarantine flag. `spctl` rejects it, as expected for an app that is
+  not notarized.
+
+The settings domain is unchanged, so the saved appearance, background
+transparency, output choice and Decode HDCD setting carry over from the
+earlier test builds. macOS may ask for removable-volume access at the first
+Play. The app was not launched as part of the installation.
