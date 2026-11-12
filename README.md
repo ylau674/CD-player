@@ -15,11 +15,11 @@ a track and time display, the slowest read speed the drive accepts, and error
 concealment instead of noisy re-reads.
 
 <img src="docs/images/audio-levels.png" width="472"
-  alt="CD Player ready to play a three-track disc with audio levels shown">
+  alt="CD Player's Liquid Glass panel in Dark appearance with audio levels shown">
 
-*Version 1.3.5 ready to play a three-track CD, with audio levels shown. The
-meters stay dark while stopped. Later versions replace this dark green panel
-with Liquid Glass.*
+*The Liquid Glass panel in Dark appearance, with audio levels shown. No drive
+is attached, so the display reads NO DRIVE. The meters stay dark while
+stopped.*
 
 **Status:** [version 1.3.5 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.5).
 M6.1–M6.5, M8 and M9 are complete and hardware-checked on one
@@ -37,8 +37,8 @@ colours and no border. View › Appearance offers Follow System (the default),
 Light and Dark, remembered across launches. The choice affects only the player
 window, not macOS. View › Background Transparency independently sets how
 strongly the glass is tinted toward the window background. The dark green panel
-in the screenshot above is removed, so the app now requires macOS 26 Tahoe.
-Playback is unchanged.
+of version 1.3.5 and earlier is removed, so the app now requires macOS 26
+Tahoe. Playback is unchanged.
 
 The panel starts at 15% transparency on a new installation (existing saved
 settings are preserved). The slider goes from solid to 90%, and the level is

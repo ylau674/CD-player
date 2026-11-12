@@ -6350,3 +6350,23 @@ systems and for Intel Macs.
   which the owner takes.
 
 No playback, installation or hardware check was performed.
+
+### README screenshot
+
+With the owner's approval, the rebuilt Debug app was launched without Play.
+The owner set View › Appearance › Dark, showed the meters with ⌘L and moved
+the window to the built-in Retina display. No drive was attached, so the
+display reads `NO DRIVE`. AppleScript could not change the setting or move
+the window, because `osascript` has no Accessibility access.
+
+A helper using `CGWindowListCopyWindowInfo` found the window number.
+`screencapture -l` then captured the window alone at 944 × 508 px, with its
+shadow and transparent corners, like the earlier image. A window-only capture
+omits the desktop behind the glass, so the panel appears as flat near-black
+glass. A capture of the screen region instead showed the real glass over the
+dark navy desktop, in a rectangular image with almost no visible shadow. The
+owner chose the window-only capture.
+
+It replaces `docs/images/audio-levels.png`, still shown at 472 points, and the
+README caption describes it. No disc was read, and nothing was played or
+installed.
