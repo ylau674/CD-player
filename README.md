@@ -20,7 +20,7 @@ concealment instead of noisy re-reads.
 *Ready to play a three-track CD, with audio levels shown. The meters stay dark
 while stopped.*
 
-**Status:** [version 1.3.3 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.3).
+**Status:** [version 1.3.5 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.5).
 M6.1–M6.5, M8 and M9 are complete and hardware-checked on one
 Mac with a Pioneer BDR-XS07U drive. Tested outputs include the built-in
 speakers and wired headphones, beyerdynamic PRO X, Sony WALKMAN USB DAC,
@@ -30,6 +30,11 @@ See the [changelog](CHANGELOG.md), [audio-output validation record](docs/AUDIO_O
 [audio-level validation record](docs/AUDIO_LEVELS_ROADMAP.md),
 [HDCD validation record](docs/HDCD_ROADMAP.md)
 and [known limitations](#known-limitations).
+
+The player panel's background starts at 15% transparency on a new installation
+(existing saved settings are preserved). Adjust it from solid to 90% with the
+slider in View › Background Transparency; the level is remembered across
+launches. The display, buttons and meters stay solid. Playback is unchanged.
 
 Version 1.3.3 is the first public release, under the Apache License 2.0. The
 About window now lists the licence and the libhdcd credits. The bundle
@@ -77,6 +82,12 @@ hardware results and the remaining limitations are in the
   - Eject. While playing or paused it becomes Stop.
   - A power icon quits.
   - Drag anywhere on the display to move the borderless window.
+  - View › Background Transparency has a live slider from 0% (solid) to 90%
+    transparent. A new installation starts at 15% and remembers the level
+    across launches. The display, buttons and meters stay solid. The slider
+    view is created when the menu first opens. With Reduce transparency on
+    (System Settings › Accessibility › Display), the panel stays solid and the
+    controls are disabled without changing the saved level.
 - **Simple display.**
   - Track number and elapsed time (`TRK 02` `00:12`). Before Play, after Stop
     and at the end of the disc, it shows the track count and the total time.
@@ -203,7 +214,7 @@ The script builds the universal Release app with the hardened runtime and an
 ad-hoc signature. It verifies the build and writes
 `build/packages/CDPlayer-<version>-macOS.zip`. Install by dragging
 `CDPlayer.app` from the ZIP into `/Applications`.
-The current [1.3.3 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.3/CDPlayer-1.3.3-macOS.zip)
+The current [1.3.5 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.5/CDPlayer-1.3.5-macOS.zip)
 is also available on GitHub. Compare its SHA-256 with the digest on the
 release page; see [security](SECURITY.md).
 

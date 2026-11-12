@@ -5741,3 +5741,306 @@ feasible entirely in-house. DST is untested because no DST disc is available.
 
 **Status.** No app code changed; only documentation was added. M10 awaits
 implementation approval and the open decisions listed in the roadmap.
+
+## Translucent panel (2026-11-04)
+
+**Request.** The owner asked whether the main window could be made 70%
+transparent. Of the options offered, the owner chose a translucent panel
+background only, always on, over fading the whole window or adding a blur.
+
+### Change
+
+The initial change drew the panel's dark green fill at 30% opacity, so 70%
+of whatever is behind the window shows through. The display's text, the
+buttons, the white border and the meters
+are drawn over the fill at full opacity. Fading the whole window with
+`alphaValue` was not used because it would fade the display as well. When
+Reduce transparency is on, SwiftUI's `accessibilityReduceTransparency`
+environment value keeps the fill opaque, and follows the setting live.
+
+`PlayerWindow` is unchanged. It was already non-opaque with a clear
+background, and it recomputes the shadow after every resize; the shadow now
+follows the lighter fill. Audio, drive access and the meters' drawing are
+unaffected. The window was already composited with transparency, so no
+extra drawing is expected; CPU use was not measured.
+
+A preview composited from the test's screenshot shows the display reading
+well over dark and colourful content. Over light windows, the pale green
+status text and the white border lose contrast, and text behind the window
+shows through the panel. Neither the live window's look, its shadow, nor
+clicking and dragging on the translucent panel was checked on screen.
+
+### Tests
+
+`testOnlyThePanelFillIsTranslucentUnlessReduceTransparencyIsOn` checks the
+fill's opacity for both settings: 0.3 normally and 1 with Reduce
+transparency. It then renders the player window. A pixel halfway into the
+left padding must have the opacity for this Mac's current setting (0.302,
+with Reduce transparency off). The border must be opaque white, and more
+than 500 pixels must be fully opaque in the display tint, from the text.
+The window must be non-opaque with an `alphaValue` of 1. The window tests'
+gap check previously required every row to be opaque. It now accepts the
+fill's opacity, and a gap still shows as fully transparent.
+
+Mutation runs confirmed the new test:
+
+- An opaque fill failed the opacity check.
+- Fading the whole view to 30% failed the border, the text and the fill
+  checks.
+
+All 24 UI tests pass. CDKit is unchanged.
+
+### Adjustable transparency
+
+The owner then requested a menu slider and chose a 0–90% range with the
+level remembered across launches. View › Background Transparency now
+contains a continuous slider, a percentage label, Less/More Transparent
+commands for keyboard access, and Reset to 70%. It changes only the fill;
+0% is solid and 90% leaves a faint background.
+
+CDKit's `PanelTransparency` stores whole percentages under
+`BackgroundTransparency`, defaulting to 70%. Missing preferences use the
+default; invalid saved values are logged and repaired. Invalid changes are
+logged and rejected. The app delegate passes one model to the window and
+menu. Tests can omit the defaults store to keep the setting in memory.
+
+SwiftUI command menus do not support sliders on every supported macOS
+release, so `PanelTransparencyMenuController` adds a native `NSSlider` view
+when the submenu begins tracking. Installation is idempotent and also
+handles rebuilt menus. The native control sends continuous actions while
+tracking; the label and rendered background update before the menu closes.
+No polling timer is added. Reduce transparency makes the background solid,
+disables the slider and the native adjustment commands, and shows an
+explanation. Turning it off restores the saved percentage.
+
+Tests cover default values, persistence (including 0%), rounding, invalid
+preferences and changes, the slider's range and accessibility description,
+and both accessibility settings without changing system preferences. The
+native menu test opens the SwiftUI-generated submenu twice, verifies there
+is exactly one working slider, drives the native slider's accessibility
+increment/decrement actions, and samples the rendered background while the
+menu is still tracking. Pixel tests check 0%, 40%, 70% and 90% in the player
+window and its background, with the border unchanged.
+
+Validation passed:
+
+- `swift test --package-path Packages/CDKit`: 463 CDKit and 29 AudioCheck tests.
+- `swift test --package-path Packages/CDKit --sanitize=address`: the same suites.
+- `swift test --package-path Packages/CDKit --sanitize=thread`: the same suites.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 28 native UI tests.
+- `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build`:
+  Debug app build succeeded.
+
+No live hardware checks, installation or playback were performed.
+
+### Menu slider fixes
+
+The owner tried the Debug build and reported two faults. The slider was
+missing the first time the submenu opened and appeared after More
+Transparent was chosen. After the slider was dragged to 90%, it could no
+longer be dragged. A temporary in-process probe, since removed, logged the
+real menu bar's structure and menu notifications on macOS 27.2.
+
+- **Missing slider.** The slider was inserted when menu tracking began. The
+  View menu's `menuNeedsUpdate:` then ran, and SwiftUI emptied the Background
+  Transparency submenu without posting notifications and added its three
+  items again. That removed the slider until a later rebuild.
+- **Stuck slider.** On macOS 27.2, mouse events on a stock `NSSlider` go to
+  an internal SwiftUI hosting view. When a drag is released outside the
+  menu, that view's gesture stays pressed and later drags are ignored. The
+  probe reproduced this: a stock slider reached 90%, then a second drag did
+  nothing.
+
+The fixes:
+
+- `PanelTransparencyMenuController` observes item additions, removals and
+  changes as well as the start of tracking. When the Background Transparency
+  submenu changes, or a menu item's submenu is replaced by one with that
+  title, the controller moves its separator and slider item to the end of the
+  submenu. The submenu now reads Less Transparent, More Transparent, Reset to
+  70%, a separator, then the slider and label. Keeping the AppKit item after
+  SwiftUI's items means SwiftUI's index-based updates never land on it. A
+  placement that is already correct returns early, and a guard prevents
+  re-entry while the item moves.
+- `MenuTrackingSlider` hit-tests to itself and runs its own mouse-tracking
+  loop, as `NSSliderCell` did, which always ends at mouse-up wherever the
+  pointer is. Value and position use the same knob-inset track and support
+  right-to-left layouts. Pressing on the knob keeps the grab point so the
+  knob does not jump. The action is sent only when the value changes, and a
+  disabled slider ignores presses. The menu view no longer resets the
+  slider's value while the published percentage already matches it, so
+  updates do not fight a drag.
+
+New tests:
+
+- The SwiftUI submenu test checks that the slider is the last item before
+  the menu is first opened.
+- `testSliderSurvivesSwiftUIRefillingOrReplacingTheSubmenu` empties and
+  refills the submenu by insertion and by appending, changes an item, swaps
+  in a replacement submenu and attaches a prefilled one. The slider must
+  stay last and unique, and an unrelated menu must be left alone.
+- `testSliderDragReleasedOutsideOpenMenuEndsAndNextDragStillWorks` opens a
+  real menu and posts mouse events while it tracks. The first drag ends with
+  mouse-up outside the menu at 90%; a second drag must then move it to 25%.
+  The published values must be 30, 60, 90, 50 and 25.
+- `testMenuSliderMapsPointerToRenderedKnobKeepsGrabAndIgnoresInputWhenDisabled`
+  checks the pointer mapping against the rendered knob in both layout
+  directions, clamping, hit-testing, a disabled slider and an off-centre
+  grab.
+
+Mutation runs confirmed the tests catch both faults:
+
+- A stock `NSSlider` failed the drag test in the same way as the owner's
+  report.
+- Placing the slider only when tracking began failed the refill test and
+  the SwiftUI submenu test.
+
+Validation passed:
+
+- `swift test --package-path Packages/CDKit`: 463 CDKit and 29 AudioCheck tests.
+- `swift test --package-path Packages/CDKit --sanitize=address`: the same suites.
+- `swift test --package-path Packages/CDKit --sanitize=thread`: the same suites.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 31 native UI tests.
+
+### Version 1.3.5 (2026-11-05)
+
+The 464 CDKit and 29 AudioCheck tests pass normally and under both
+AddressSanitizer and ThreadSanitizer, and all 31 native UI tests pass.
+
+Version 1.3.5 (build 9) is packaged as `CDPlayer-1.3.5-macOS.zip`. The
+packaging script confirmed the bundle identifier, credits and copyright. The
+extracted app has the expected version, macOS 14 minimum, both `arm64` and
+`x86_64` architectures, and a valid ad-hoc signature with the hardened
+runtime. It has no home-folder paths in its binary. The package SHA-256 is:
+
+```text
+019e4e520c73676480ea16a4b3b2327bb364ac53fe5a4a27659e8c3a2c6c0f0b
+```
+
+Synthetic events go through real menu tracking, but they are not a physical
+mouse; the owner should confirm dragging on screen. No live hardware checks,
+installation or playback were performed.
+
+### Slider-only submenu
+
+The owner asked to remove Less Transparent and More Transparent because the
+slider does the same job. The submenu now reads Reset to 70%, a separator,
+then the slider and its label. Reset stays and, like the slider, is disabled
+while Reduce transparency is on. The slider still stays after SwiftUI's
+items, so the placement logic is unchanged.
+
+Without the step commands, the level can't be changed from the keyboard
+alone: AppKit doesn't send key events to views in menu items. VoiceOver can
+still step the slider with its increment and decrement actions, which the
+SwiftUI submenu test drives.
+
+The SwiftUI submenu test now expects only Reset to 70% before the slider and
+checks that Reset restores 70% from 90%. The refill test uses the same
+single item.
+
+Validation passed:
+
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 31 native UI tests.
+- `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build build`:
+  Debug app build succeeded without warnings.
+
+CDKit is unchanged.
+
+### Lazy transparency slider
+
+The owner approved deferring the slider's memory cost until it is needed.
+Before this change, the menu controller constructed the AppKit slider view
+at launch. On macOS 27, the standard slider also creates a hidden SwiftUI
+slider hierarchy, accounting for about 0.75 MiB in the idle footprint
+measurement. The controller now creates the slider view when the Background
+Transparency submenu first begins tracking. Item changes before that point
+do not install an empty menu item; after creation, the existing placement
+logic keeps it after SwiftUI's Reset item through submenu refills and
+replacements. The view stays alive for the remainder of the app session once
+the submenu has been opened.
+
+The SwiftUI menu test asserts the slider view is absent before the first
+open and present while tracking. The refill/replacement test likewise checks
+it remains uncreated until tracking begins.
+
+Validation passed:
+
+- All 31 native UI tests passed; the Debug and Release builds succeeded
+  without warnings.
+- The Release app's idle footprint before opening the menu was 23.74 MiB,
+  matching the earlier no-slider control at 23.72 MiB. The eager-slider
+  variant measured 24.47 MiB, so deferring the slider saves about 0.73 MiB
+  until the submenu is first opened. The slider remains allocated afterward.
+- The app averaged 0.00% CPU while idle in the 16-second sample. No additional
+  polling or background work was added.
+
+### Version 1.3.4 (2026-11-04)
+
+The owner asked for the translucent panel to be committed, pushed and
+installed, and chose a 1.3.4 release delivered through a pull request. It is a
+patch release with one change since 1.3.3: the translucent panel described in
+this section (`21d3356`). Playback is unchanged.
+
+The 463 CDKit and 29 AudioCheck tests pass normally and under both
+AddressSanitizer and ThreadSanitizer, and all 31 native UI tests pass. These
+runs used the tree that was packaged, with the version and build number
+already changed.
+
+Version 1.3.4 (build 8) is packaged as `CDPlayer-1.3.4-macOS.zip`. The script
+confirmed the bundle identifier, the credits and the copyright string. The
+extracted app was checked for its version, macOS 14 minimum, both `arm64` and
+`x86_64` architectures, and strict signature validity with an ad-hoc
+signature and the hardened runtime. It has no home-folder paths in its
+binary. The package SHA-256 is:
+
+```text
+14b35a7c2855491384c477ac74a2f40212096653ad1c8d2122f739816d1452f5
+```
+
+`main` requires a pull request with the offline test check, so the feature
+commit `21d3356` and the release commit `be85d8b` reach `main` through a pull
+request merged with a merge commit, which keeps the release commit unchanged.
+The `v1.3.4` tag is then put on `be85d8b`, and the GitHub release is
+published with this ZIP once its uploaded digest matches.
+
+With no CD Player running, no `ChangedOutputRates` record pending and the
+earlier test build quit, `/Applications/CDPlayer.app` 1.3.3 (build 7) was
+replaced by the app from the ZIP. The installed app reports 1.3.4 (build 8),
+both architectures and the bundle identifier `io.github.ylau674.CDPlayer`. It
+is identical to the ZIP's app, passes strict code-signature verification with
+an ad-hoc signature and the hardened runtime, has CDHash
+`9e4c91a16064cd4488e430b29840ce83a28b92e1`, and has no quarantine flag. The
+settings domain is unchanged, so the owner's settings, including the saved
+transparency, carry over. The new ad-hoc signature may make macOS ask again
+for removable-volume access at the first Play. The app was not launched as
+part of the update.
+
+## Initial transparency default (2026-11-05)
+
+The owner asked for a fresh installation to start at 15% background
+transparency. `PanelTransparency` now uses 15% when no preference exists, and
+the menu's Reset command restores 15%. A valid saved preference is left
+untouched, so upgrading an existing installation does not change its chosen
+level. Invalid saved values are still repaired to the new default.
+
+The README, architecture description, development milestone and 1.3.5
+changelog entry now describe the current behavior. The 1.3.4 release entry
+above remains historical: that release used 70% as its initial default.
+
+Validation passed:
+
+- `swift test --package-path Packages/CDKit`: 464 CDKit and 29 AudioCheck
+  tests.
+- `swift test --package-path Packages/CDKit --sanitize=address`: the same
+  suites.
+- `swift test --package-path Packages/CDKit --sanitize=thread`: the same
+  suites.
+- `xcodegen generate`, then
+  `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Debug -derivedDataPath build -destination 'platform=macOS' test`:
+  all 31 native UI tests.

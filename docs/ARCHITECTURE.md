@@ -162,6 +162,27 @@ formats. It is used only for approved crash-recovery tests.
    handles `performMiniaturize` by calling `miniaturize` directly: the
    standard implementation expects a title-bar button. Native Dock
    minimization/restoration and their visibility notifications are preserved.
+   The window is non-opaque with a clear background. `PlayerPanelBackground`
+   observes CDKit's `PanelTransparency`: a 0–90% transparency setting, initially
+   15% when no preference is saved, persisted as `BackgroundTransparency` in
+   the app's defaults. The app delegate shares that model with the window and
+   View menu. SwiftUI command menus cannot host sliders on all supported macOS
+   releases, so
+   `PanelTransparencyMenuController` lazily creates the AppKit slider view
+   the first time the submenu opens, then appends it with a separator after
+   SwiftUI's Reset to 15% item. This avoids the slider's memory cost in
+   sessions that never open the submenu. SwiftUI empties
+   and refills that submenu when the View menu first opens, so the controller
+   re-places the item whenever the submenu's items change, not only when
+   tracking begins. `MenuTrackingSlider` tracks its own drag until mouse-up,
+   because recent macOS routes `NSSlider` events to an internal view that can
+   stay stuck after a release outside the menu. The slider updates the
+   background while the menu stays open, and VoiceOver can step it with the
+   slider's increment and decrement actions.
+   Text, buttons, the border and meters retain their existing opacity.
+   Reduce transparency makes the background solid and disables adjustments
+   without overwriting the saved level. Resize steps still invalidate the
+   window shadow.
 7. **Status.** `PlayerModel` polls the engine snapshot every 100 ms for the
    current frame, buffering, end of disc and concealed sectors, and derives
    every string the view shows (`trackText`, `timeText`, `statusText`,
