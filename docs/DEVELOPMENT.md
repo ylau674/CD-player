@@ -583,7 +583,8 @@ Next:
   played audibly in the app with HDCD shown. Live
   verification with real-program HDCD whose musical peaks are lifted by Peak
   Extend remains follow-up work. M7 (MQA-CD) remains a draft. M10 (SACD) is a
-  draft whose feasibility spike passed; see below.
+  draft whose feasibility spike passed; it is being evaluated privately, with
+  no release planned. See below.
 
 Possible next features (not agreed):
 
@@ -596,7 +597,7 @@ Possible next features (not agreed):
   converts their DSD to 24-bit, 88.2 kHz PCM with its own filter; pressed
   SACDs can't be read by computer drives. See the
   [SACD roadmap](SACD_ROADMAP.md) (draft M10; scope confirmed, plain-DSD
-  decoding proven against FFmpeg, implementation not yet approved).
+  decoding proven against FFmpeg; evaluated privately, no release planned).
 - CD-Text track titles, or an opt-in online metadata lookup.
 - Repeat and shuffle, and a remaining-time display.
 - Localization.

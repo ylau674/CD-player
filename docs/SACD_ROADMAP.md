@@ -1,8 +1,11 @@
 # SACD Roadmap (Draft)
 
 **Status:** Scope and the main design choices confirmed by the owner on
-2026-11-04; the feasibility spike passed; implementation not approved.  
-**Target:** A future 1.x milestone (working label M10).  
+2026-11-04; the feasibility spike passed. Further work is being evaluated
+privately; no release is planned.
+
+**Target:** Not scheduled (working label M10).
+
 **Basis:** Read-only analysis of the owner's burned SACD ISO disc, a
 feasibility spike on 2026-11-04, and a survey of open-source SACD code; see
 [Sources](#sources). Plain DSD decoding is proven against an independent
