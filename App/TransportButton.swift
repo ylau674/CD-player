@@ -11,7 +11,7 @@ struct TransportHold {
 struct TransportButton: NSViewRepresentable {
     let symbol: String
     let label: String
-    let tint: Color
+    let tint: NSColor
     var height: CGFloat = 26
     var pointSize: CGFloat = 13
     /// Off when the tint itself shows a state that must stay readable while the button is disabled.
@@ -54,7 +54,7 @@ struct TransportButton: NSViewRepresentable {
             }
             button.holdLabel = hold?.label
         }
-        if new.tint != old?.tint { button.contentTintColor = NSColor(tint) }
+        if new.tint != old?.tint { button.contentTintColor = tint }
         if new.isEnabled != old?.isEnabled { button.isEnabled = new.isEnabled }
     }
 
@@ -69,7 +69,7 @@ struct TransportButton: NSViewRepresentable {
         let label: String
         let holdSymbol: String?
         let holdLabel: String?
-        let tint: Color
+        let tint: NSColor
         let isEnabled: Bool
     }
 

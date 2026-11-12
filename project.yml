@@ -2,14 +2,15 @@ name: CDPlayer
 options:
   bundleIdPrefix: io.github.ylau674
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "26.0"
 packages:
   CDKit:
     path: Packages/CDKit
 settings:
   base:
     SWIFT_VERSION: "6.0"
-    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    ARCHS: arm64
 targets:
   CDPlayer:
     type: application
@@ -34,6 +35,7 @@ targets:
     sources:
       - Tests/AppTests
       - App/AudioLevelBars.swift
+      - App/PlayerPalette.swift
       - App/PlayerView.swift
       - App/PlayerCommands.swift
       - App/PanelTransparencyMenu.swift

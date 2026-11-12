@@ -12,6 +12,7 @@ enum AudioLevelsCommand {
 struct PlayerCommands: Commands {
     @ObservedObject var player: PlayerModel
     let transparency: PanelTransparency
+    let appearance: PanelAppearance
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {}
@@ -74,7 +75,25 @@ struct PlayerCommands: Commands {
             }
             .keyboardShortcut(AudioLevelsCommand.shortcut)
             Divider()
+            PanelAppearanceCommands(appearance: appearance)
             PanelTransparencyCommands(transparency: transparency)
         }
+    }
+}
+
+struct PanelAppearanceCommands: View {
+    @ObservedObject var appearance: PanelAppearance
+
+    var body: some View {
+        Picker("Appearance", selection: Binding(
+            get: { appearance.selection },
+            set: { appearance.setSelection($0) }
+        )) {
+            Text("Follow System").tag(PanelAppearance.Selection.system)
+            Text("Light").tag(PanelAppearance.Selection.light)
+            Text("Dark").tag(PanelAppearance.Selection.dark)
+        }
+        .pickerStyle(.menu)
+        .help("Choose the appearance of the Liquid Glass player window without changing macOS.")
     }
 }

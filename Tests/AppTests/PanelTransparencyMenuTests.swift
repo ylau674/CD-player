@@ -42,10 +42,7 @@ final class PanelTransparencyMenuTests: XCTestCase {
         XCTAssertEqual(view.slider.doubleValue, 90)
     }
 
-    func testSwiftUIMenuContainsWorkingSliderAndUpdatesBackgroundWhileTracking() throws {
-        guard #available(macOS 14.4, *) else {
-            throw XCTSkip("NSHostingMenu is available from macOS 14.4; the production bridge uses macOS 14 APIs")
-        }
+    func testSwiftUIMenuContainsWorkingSliderAndTintsTheGlassWhileTracking() throws {
         let setting = PanelTransparency()
         let controller = PanelTransparencyMenuController(transparency: setting)
         let hosting = NSHostingMenu(rootView: PanelTransparencyCommands(transparency: setting))
@@ -54,16 +51,14 @@ final class PanelTransparencyMenuTests: XCTestCase {
         XCTAssertEqual(submenu.title, "Background Transparency")
         XCTAssertNil(controller.sliderItem.view, "The slider view should be created only when the submenu first opens")
         XCTAssertEqual(submenu.items.map(\.title), ["Reset to 15%"])
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 100),
-            styleMask: [.borderless], backing: .buffered, defer: false
-        )
-        window.isReleasedWhenClosed = false
-        let host = NSHostingView(rootView: PlayerPanelBackground(transparency: setting, reduceTransparency: false))
-        window.contentView = host
+        let player = PlayerModel.offline()
+        addTeardownBlock { @MainActor in try await player.shutdown() }
+        let window = PlayerWindow(player: player, transparency: setting)
         window.center()
         window.orderFrontRegardless()
         defer { window.close() }
+        let glass = try XCTUnwrap(window.contentView as? NSGlassEffectView)
+        let host = window.hostingView
         for value in [0.0, 90] {
             var examined = false
             var adjusted = false
@@ -88,13 +83,8 @@ final class PanelTransparencyMenuTests: XCTestCase {
                     adjusted = true
                 } else {
                     defer { submenu.cancelTracking() }
-                    guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
-                        XCTFail("Could not render the background during menu tracking")
-                        return
-                    }
-                    host.cacheDisplay(in: host.bounds, to: bitmap)
-                    let alpha = bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)?.alphaComponent
-                    XCTAssertEqual(alpha ?? -1, 1 - value / 100, accuracy: 0.02)
+                    let tint = glass.tintColor?.resolved(for: window.effectiveAppearance)
+                    XCTAssertEqual(tint?.alphaComponent ?? -1, 1 - value / 100, accuracy: 0.001)
                     examined = true
                 }
             }

@@ -15,10 +15,11 @@ a track and time display, the slowest read speed the drive accepts, and error
 concealment instead of noisy re-reads.
 
 <img src="docs/images/audio-levels.png" width="472"
-  alt="CD Player ready to play a three-track disc with audio levels shown">
+  alt="CD Player's Liquid Glass panel in Dark appearance with audio levels shown">
 
-*Ready to play a three-track CD, with audio levels shown. The meters stay dark
-while stopped.*
+*The Liquid Glass panel in Dark appearance, with audio levels shown. No drive
+is attached, so the display reads NO DRIVE. The meters stay dark while
+stopped.*
 
 **Status:** [version 1.3.5 is released](https://github.com/ylau674/CD-player/releases/tag/v1.3.5).
 M6.1–M6.5, M8 and M9 are complete and hardware-checked on one
@@ -31,10 +32,17 @@ See the [changelog](CHANGELOG.md), [audio-output validation record](docs/AUDIO_O
 [HDCD validation record](docs/HDCD_ROADMAP.md)
 and [known limitations](#known-limitations).
 
-The player panel's background starts at 15% transparency on a new installation
-(existing saved settings are preserved). Adjust it from solid to 90% with the
-slider in View › Background Transparency; the level is remembered across
-launches. The display, buttons and meters stay solid. Playback is unchanged.
+The player panel is now Liquid Glass in the clear style, with system text
+colours and no border. View › Appearance offers Follow System (the default),
+Light and Dark, remembered across launches. The choice affects only the player
+window, not macOS. View › Background Transparency independently sets how
+strongly the glass is tinted toward the window background. The dark green panel
+of version 1.3.5 and earlier is removed, so the app now requires macOS 26
+Tahoe. Playback is unchanged.
+
+The panel starts at 15% transparency on a new installation (existing saved
+settings are preserved). The slider goes from solid to 90%, and the level is
+remembered across launches. The display, buttons and meters stay solid.
 
 Version 1.3.3 is the first public release, under the Apache License 2.0. The
 About window now lists the licence and the libhdcd credits. The bundle
@@ -82,12 +90,22 @@ hardware results and the remaining limitations are in the
   - Eject. While playing or paused it becomes Stop.
   - A power icon quits.
   - Drag anywhere on the display to move the borderless window.
+  - The panel is clear Liquid Glass. Its text, symbols, outlines and meters
+    use system colours that follow Light and Dark Mode, and it has no border.
+  - View › Appearance offers Follow System, Light and Dark. Follow System is
+    the default; Light and Dark override only the player window. The choice
+    applies immediately and is remembered across launches, without changing
+    the background transparency or playback.
   - View › Background Transparency has a live slider from 0% (solid) to 90%
-    transparent. A new installation starts at 15% and remembers the level
-    across launches. The display, buttons and meters stay solid. The slider
-    view is created when the menu first opens. With Reduce transparency on
-    (System Settings › Accessibility › Display), the panel stays solid and the
-    controls are disabled without changing the saved level.
+    transparent. 0% tints the glass fully toward the window background and
+    90% leaves it almost clear; lower values keep the text legible over
+    bright or busy windows. A new installation starts at 15% and remembers
+    the level across launches. The display, buttons and meters stay solid.
+    The slider view is created when the menu first opens. With Reduce
+    transparency on (System Settings › Accessibility › Display), the panel is
+    a solid fill (the selected appearance's window background colour) and the
+    transparency controls are disabled without changing the saved level.
+    The Appearance menu remains available.
 - **Simple display.**
   - Track number and elapsed time (`TRK 02` `00:12`). Before Play, after Stop
     and at the end of the disc, it shows the track count and the total time.
@@ -172,11 +190,15 @@ hardware results and the remaining limitations are in the
 
 ## Requirements
 
-- macOS 14 Sonoma or newer, on Apple silicon or Intel (universal binary).
+- A Mac with Apple silicon, running macOS 26 Tahoe or newer. Version 1.3.5
+  and earlier run on macOS 14 Sonoma or newer, including Intel Macs, and
+  remain available on the
+  [releases page](https://github.com/ylau674/CD-player/releases).
 - An optical drive that can read audio CDs.
 - macOS must allow the logged-in user to read the drive's raw device. The app
   does not work around managed removable-media policy.
-- To build: Xcode with the macOS SDK (Swift 6 language mode) and
+- To build: Xcode 26 or later with the macOS 26 SDK (Swift 6 language mode),
+  which the Liquid Glass panel needs, and
   [XcodeGen](https://github.com/yonaskolb/XcodeGen). No third-party packages
   need installation; the only vendored dependency is the pinned BSD-licensed
   [libhdcd source](Packages/CDKit/Sources/HDCD/LICENSE).
@@ -210,8 +232,9 @@ To set up a new machine and for the full workflow, see the
 ./Tools/package-release.sh
 ```
 
-The script builds the universal Release app with the hardened runtime and an
-ad-hoc signature. It verifies the build and writes
+The script builds the Apple silicon (`arm64`) Release app with the hardened
+runtime and an ad-hoc signature. It verifies the build, including that the app
+contains no other architecture, and writes
 `build/packages/CDPlayer-<version>-macOS.zip`. Install by dragging
 `CDPlayer.app` from the ZIP into `/Applications`.
 The current [1.3.5 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.3.5/CDPlayer-1.3.5-macOS.zip)
@@ -220,12 +243,9 @@ release page; see [security](SECURITY.md).
 
 The app is **not** Developer ID signed or notarized. If the ZIP reaches
 another Mac by download, AirDrop, Messages or e-mail, Gatekeeper blocks the
-first launch.
-
-- **macOS 15 or later:** after the blocked attempt, open **System Settings ›
-  Privacy & Security**, click **Open Anyway** next to the CD Player message,
-  and confirm with your password.
-- **macOS 14:** Control-click the app and choose **Open**.
+first launch. After the blocked attempt, open **System Settings › Privacy &
+Security**, click **Open Anyway** next to the CD Player message, and confirm
+with your password.
 
 A DMG would not avoid this; only notarization does. See
 [testing on another Mac](docs/DEVELOPMENT.md#test-on-another-mac) and
