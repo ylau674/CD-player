@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Performance
+
+- Reduce playback CPU and wakeups by isolating the once-per-second readout
+  from SwiftUI, polling playback at 5 Hz, refreshing meters at 10 Hz, caching
+  repeated layout measurements and button appearances, and pacing the audio
+  producer with a stop-wakeable wait.
+- A 60-second Release measurement fell from 2.22% to 0.94% CPU with meters
+  hidden and from 2.74% to 1.21% with meters shown. Playback wakeups fell
+  from 165/s to 17/s hidden and from 182/s to 26/s shown on the test Mac.
+
 ## [1.4.0] - 2026-11-12
 
 ### Added

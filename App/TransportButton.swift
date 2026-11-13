@@ -35,7 +35,7 @@ struct TransportButton: NSViewRepresentable {
     func updateNSView(_ button: TransportNSButton, context: Context) {
         context.coordinator.action = action
         button.onHold = hold?.action
-        // This runs on every update of the player view, including each clock tick. A new image or
+        // This runs on every update of the player view. A new image or
         // attribute makes AppKit re-resolve the symbol and lay the window out again, so only
         // apply what changed.
         let new = Appearance(symbol: symbol, label: label, holdSymbol: hold?.symbol, holdLabel: hold?.label,
@@ -59,9 +59,8 @@ struct TransportButton: NSViewRepresentable {
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: TransportNSButton, context: Context) -> CGSize? {
-        let intrinsicWidth = nsView.intrinsicContentSize.width
-        let width = proposal.width ?? intrinsicWidth
-        return CGSize(width: width.isFinite ? width : intrinsicWidth, height: height)
+        if let width = proposal.width, width.isFinite { return CGSize(width: width, height: height) }
+        return CGSize(width: nsView.intrinsicContentSize.width, height: height)
     }
 
     struct Appearance: Equatable {
@@ -104,6 +103,24 @@ final class TransportNSButton: NSButton {
     var holdingImage: NSImage? { didSet { updateImage() } }
     private(set) var isHolding = false { didSet { updateImage() } }
     private var pointerIsInside = false
+    /// SwiftUI asks for the size in every layout pass of the player, and AppKit measures the cell each time.
+    private var cachedIntrinsicContentSize: NSSize?
+
+    override var image: NSImage? {
+        didSet { cachedIntrinsicContentSize = nil }
+    }
+
+    override var intrinsicContentSize: NSSize {
+        if let cachedIntrinsicContentSize { return cachedIntrinsicContentSize }
+        let size = super.intrinsicContentSize
+        cachedIntrinsicContentSize = size
+        return size
+    }
+
+    override func invalidateIntrinsicContentSize() {
+        cachedIntrinsicContentSize = nil
+        super.invalidateIntrinsicContentSize()
+    }
 
     // AppKit's symbol-specific insets would enlarge and misalign the clickable bounds.
     override var alignmentRectInsets: NSEdgeInsets {

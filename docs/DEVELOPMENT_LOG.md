@@ -6443,3 +6443,69 @@ The settings domain is unchanged, so the saved appearance, background
 transparency, output choice and Decode HDCD setting carry over from the
 earlier test builds. macOS may ask for removable-volume access at the first
 Play. The app was not launched as part of the installation.
+
+## CPU optimization (2026-11-13)
+
+The owner asked to benchmark the latest version and reduce CPU usage. The
+1.4.0 live baseline on this Mac was 2.22% CPU with meters hidden and 2.74%
+with meters shown, with 165 and 182 wakeups/s respectively. Paused CPU was
+0.014%.
+
+### Changes
+
+- `PlayerClock` sends only when the displayed track or whole second changes.
+  The AppKit `PlayerReadout` listens directly and redraws only changed text
+  lines, so a clock tick no longer invalidates the SwiftUI panel. Four
+  summary/paused, light/dark snapshots matched the former SwiftUI readout
+  pixel-for-pixel. A UI test covers clock-driven text and accessibility updates.
+- The status poll is 5 Hz instead of 10 Hz. The meters refresh at 10 Hz
+  instead of 15 Hz; their extrapolation cap is 0.3 s (one poll plus a margin)
+  so delayed polls do not run the meter ahead of playback.
+- Transport-button appearances are applied only when changed, and the output
+  status line caches text measurements and avoids resetting unchanged layer
+  strings.
+- Sector reads are validated separately from decoding. The decoder copies PCM
+  in bulk and expands error flags without the former per-bit loop.
+- The audio producer waits on a condition variable, timed to the expected
+  ring drain and capped at 100 ms. Stop broadcasts to wake it immediately;
+  the HAL render callback remains lock-free and unchanged.
+
+### Results
+
+The temporary Release tick benchmark measured 0.365–0.451 ms of main-thread
+work per tick, versus 1.93 ms after the preceding optimizations. This is a
+77–81% reduction in the benchmark's incremental tick cost. Its temporary test
+was removed after measurement.
+
+With the owner's approval, a Release build played a CD whose audio was
+audible and whose displayed time advanced. The owner performed the playback,
+meter and pause actions. No volume or mute setting was changed.
+
+| State | 1.4.0 baseline | Optimized Release | Wakeups/s, baseline → optimized |
+|---|---:|---:|---:|
+| Playing, meters hidden | 2.22% | 0.938% | 165.3 → 16.7 |
+| Playing, meters shown | 2.74% | 1.210% | 182.4 → 25.5 |
+| Paused | 0.014% | 0.021% | 0.1 → 0.1 |
+
+The playing CPU samples fell by 58% hidden and 56% shown; wakeups fell by
+90% and 86%. Memory was 35.4 MB hidden, 40.1 MB shown and 34.7 MB paused.
+A simultaneous 20-second cross-check measured 0.950% with the helper and
+0.885% mean CPU with `top`. The first attempted sample was idle and was
+discarded; only the later sample after playback progress was confirmed is
+reported.
+
+### Validation
+
+- `swift test --package-path Packages/CDKit`: 497 passed.
+- `swift test --package-path Packages/CDKit --sanitize=address --scratch-path /tmp/cdkit-cpu-asan`: 497 passed, no sanitizer diagnostics.
+- `swift test --package-path Packages/CDKit --sanitize=thread --scratch-path /tmp/cdkit-cpu-tsan`: 497 passed, no sanitizer diagnostics.
+- `xcodegen generate`: passed.
+- `xcodebuild -project CDPlayer.xcodeproj -scheme CDPlayer -configuration Release -derivedDataPath build/DerivedData/CPURelease ARCHS=arm64 build`: passed.
+- The new `testPlayerReadoutRefreshesFromItsClock` passed.
+- The full UI suite's output-name scrolling test did not attach its Core
+  Animation. It still failed in a focused retry after the owner unlocked the
+  screen and the benchmark app was closed. A diagnostic showed the test
+  window was visible but its `occlusionState` did not contain `.visible`, so
+  the view correctly suppressed scrolling while fully occluded. The full
+  suite excluding that one test passed all 36 remaining tests; the failure is
+  recorded rather than treated as a pass.

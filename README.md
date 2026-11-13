@@ -183,10 +183,12 @@ hardware results and the remaining limitations are in the
     after a crash, and after wake if macOS delays restoration during sleep.
   - Recovers cleanly when the drive is unplugged while playing, paused,
     seeking or ejecting.
-- **Light.** In Release, playback uses about 2% of one CPU core with the
-  meters hidden and about 3% with them shown. Memory measured 39–41 MB while
-  playing and 33–38 MB while paused, since Pause returns the read-ahead buffer
-  to macOS.
+- **Light.** On the test Mac, a 60-second Release measurement used 0.94% of
+  one CPU core with the meters hidden and 1.21% with them shown, down from
+  2.22% and 2.74% before the CPU optimizations. Playback wakeups fell from
+  165/s to 17/s hidden and from 182/s to 26/s shown. Memory was 35.4 MB
+  hidden, 40.1 MB shown and 34.7 MB paused; Pause returns the read-ahead
+  buffer to macOS.
 
 ## Requirements
 

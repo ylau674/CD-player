@@ -137,19 +137,7 @@ struct PlayerView: View {
                 }
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Text("TRK")
-                    .font(.system(size: 14, design: .monospaced))
-                Text(player.trackText)
-                    .font(.custom("Helvetica-Oblique", size: 38))
-                Spacer()
-                Text(player.timeText)
-                    .font(.custom("Helvetica-Oblique", size: 38))
-            }
-            .font(.system(size: 38, weight: .medium, design: .monospaced))
-            .monospacedDigit()
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(player.displayAccessibilityLabel)
+            PlayerReadout(player: player, tint: palette.display)
 
             HStack(spacing: 8) {
                 transport(

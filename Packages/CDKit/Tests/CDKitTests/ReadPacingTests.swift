@@ -168,6 +168,28 @@ func pacingNeverWaitsForMoreThanASmallRingsRecoveryGate(_ pacing: CDReadPacing) 
     _ = try await playback.stop()
 }
 
+@Test(arguments: [CD_READ_STEADY, CD_READ_BURST])
+func stopWakesAPacedProducerInsteadOfWaitingOutItsRefillWait(_ pacing: CDReadPacing) async throws {
+    let capacity = Int(CD_PLAYBACK_BUFFER_FRAMES)
+    let source = TestPCMSource(frameCount: UInt64(capacity * 2), readPacing: pacing)
+    let playback = try OfflinePCMPlayback(source: source)
+    // A full ring waits about 100 ms before checking again; a missed wake-up would show in the joins.
+    var slowest = Duration.zero
+    for _ in 1...5 {
+        try playback.prepare()
+        try await waitUntil { try playbackSnapshot(playback.pointer).bufferedFrames == capacity }
+        let elapsed = await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                var error = CDError()
+                let elapsed = ContinuousClock().measure { _ = cd_playback_stop(playback.pointer, nil, &error) }
+                continuation.resume(returning: elapsed)
+            }
+        }
+        slowest = max(slowest, elapsed)
+    }
+    #expect(slowest < .milliseconds(50))
+}
+
 @Test func invalidPacingIsRejectedWithoutTakingOwnershipOfTheSource() throws {
     let probe = PCMSourceProbe()
     var source: TestPCMSource? = TestPCMSource(

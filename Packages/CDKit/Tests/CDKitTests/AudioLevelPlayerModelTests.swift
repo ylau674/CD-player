@@ -39,7 +39,7 @@ import Testing
     clock.advance(by: .milliseconds(300))
     model.updateAudioLevels()
     #expect(source.requests.last == .init(
-        fromFrame: displayFrame + 4_410, throughFrame: displayFrame + 8_820
+        fromFrame: displayFrame + 4_410, throughFrame: displayFrame + 13_230
     ))
 
     await model.togglePlayback()

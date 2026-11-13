@@ -223,12 +223,12 @@ final class DiscReadRecovery {
             let block = try checkedRead(
                 sector, count, false, context: context, budget: &budget, negotiatingC2: true, rawRead: rawRead
             )
-            _ = try decode(block, firstSector: sector, count: count, flags: false)
+            try validate(block, firstSector: sector, count: count, flags: false)
             c2Support = .unsupported
             Self.logger.warning("C2 request failed but the same plain read succeeded; C2 is unavailable for this disc session.")
             return block
         }
-        _ = try decode(block, firstSector: sector, count: count, flags: flags)
+        try validate(block, firstSector: sector, count: count, flags: flags)
         if flags { c2Support = .supported }
         return block
     }
@@ -251,23 +251,28 @@ final class DiscReadRecovery {
         return block
     }
 
-    private func decode(_ block: CDSectorBlock, firstSector: UInt64, count: Int, flags: Bool) throws -> Candidate {
+    private func validate(_ block: CDSectorBlock, firstSector: UInt64, count: Int, flags: Bool) throws {
         guard block.firstSector == firstSector, block.audio.count == count * CDSectorBlock.audioBytes,
               flags ? block.errorFlags?.count == count * CDSectorBlock.errorFlagBytes : block.errorFlags == nil else {
             throw CDReadError(.failed, Self.invalidBlock)
         }
-        let samples = block.audio.withUnsafeBytes { bytes in
-            (0..<count * Self.samplesPerSector).map {
-                Int16(bitPattern: UInt16(littleEndian: bytes.loadUnaligned(fromByteOffset: $0 * 2, as: UInt16.self)))
-            }
+    }
+
+    private func decode(_ block: CDSectorBlock, firstSector: UInt64, count: Int, flags: Bool) throws -> Candidate {
+        try validate(block, firstSector: firstSector, count: count, flags: flags)
+        let sampleCount = count * Self.samplesPerSector
+        let samples = [Int16](unsafeUninitializedCapacity: sampleCount) { buffer, initialized in
+            block.audio.withUnsafeBytes { UnsafeMutableRawBufferPointer(buffer).copyMemory(from: $0) }
+            // Disc audio is little-endian; on a little-endian Mac this loop compiles away.
+            for index in 0..<sampleCount { buffer[index] = Int16(littleEndian: buffer[index]) }
+            initialized = sampleCount
         }
-        var suspect = [Bool](repeating: false, count: samples.count)
-        if let bytes = block.errorFlags {
-            for sample in samples.indices {
-                let firstByte = sample * 2
-                suspect[sample] = (0..<2).contains { offset in
-                    let bit = firstByte + offset
-                    return bytes[bit / 8] & (0x80 >> UInt8(bit % 8)) != 0
+        var suspect = [Bool](repeating: false, count: sampleCount)
+        block.errorFlags?.withUnsafeBytes { bytes in
+            // One bit per audio byte, most significant first, so each flag byte covers four samples.
+            for (index, byte) in bytes.enumerated() where byte != 0 {
+                for sample in 0..<4 where byte & (0xC0 >> UInt8(sample * 2)) != 0 {
+                    suspect[index * 4 + sample] = true
                 }
             }
         }
@@ -410,7 +415,7 @@ final class DiscReadRecovery {
         for range in ranges {
             do {
                 let block = try checkedRead(range.lowerBound, range.count, false, context: context, budget: &budget, rawRead: rawRead)
-                _ = try decode(block, firstSector: range.lowerBound, count: range.count, flags: false)
+                try validate(block, firstSector: range.lowerBound, count: range.count, flags: false)
                 sectors += range.count
             } catch let error as CDReadError where error.kind == .mediaError {
                 Self.logger.debug("Cache displacement read failed: \(error.message, privacy: .public)")

@@ -81,7 +81,7 @@ private func level(
 }
 
 @MainActor
-@Test func audioLevelDriverReadsAtFifteenHertzOnlyWhileLive() throws {
+@Test func audioLevelDriverReadsAtTenHertzOnlyWhileLive() throws {
     let probe = MeterDriverProbe()
     let driver = probe.makeDriver()
 
@@ -90,7 +90,7 @@ private func level(
     #expect(probe.reads == 1)
     #expect(probe.drawn == [level(4, hold: 6)])
     let timer = try #require(probe.timers.first)
-    #expect(timer.interval == 1.0 / 15)
+    #expect(timer.interval == 1.0 / 10)
     #expect(driver.isRefreshing)
 
     // Player changes while live re-read but keep the one timer.

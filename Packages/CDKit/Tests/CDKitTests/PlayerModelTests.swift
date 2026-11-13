@@ -501,36 +501,42 @@ actor FakeEngine: PlaybackEngine {
     let model = PlayerModel.offline(engine: engine, automaticallyMonitor: false)
     await model.togglePlayback()
     await model.refreshPlayback()
+    // Only the readout observes the clock, so a playing second does not rebuild the panel or menus.
     var notifications = 0
+    var ticks = 0
     let subscription = model.objectWillChange.sink { notifications += 1 }
-    defer { subscription.cancel() }
+    let clockSubscription = model.clock.objectWillChange.sink { ticks += 1 }
+    defer {
+        subscription.cancel()
+        clockSubscription.cancel()
+    }
 
     for tenth in UInt64(1)...9 {
         await engine.setFrame(tenth * Disc.sampleRate / 10)
         await model.refreshPlayback()
     }
-    #expect(notifications == 0)
+    #expect(notifications == 0 && ticks == 0)
     #expect(model.currentFrame == 9 * Disc.sampleRate / 10)
     #expect(model.bufferedFrames == 100)
 
     await engine.setFrame(Disc.sampleRate)
     await model.refreshPlayback()
-    #expect(notifications == 1)
+    #expect(notifications == 0 && ticks == 1)
     #expect(model.timeText == "00:01")
 
     await engine.setBuffering(true)
     await model.refreshPlayback()
     await model.refreshPlayback()
-    #expect(notifications == 2)
+    #expect(notifications == 1 && ticks == 1)
     #expect(model.isBuffering)
 
     await engine.setFrame(30 * Disc.sampleRate - 1)
     await model.refreshPlayback()
-    #expect(notifications == 3)
+    #expect(notifications == 1 && ticks == 2)
     #expect(model.trackText == "01" && model.timeText == "00:29")
     await engine.setFrame(30 * Disc.sampleRate)
     await model.refreshPlayback()
-    #expect(notifications == 4)
+    #expect(notifications == 1 && ticks == 3)
     #expect(model.trackText == "02" && model.timeText == "00:00")
     try await model.shutdown()
 }
