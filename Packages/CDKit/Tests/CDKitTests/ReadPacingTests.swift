@@ -170,10 +170,12 @@ func pacingNeverWaitsForMoreThanASmallRingsRecoveryGate(_ pacing: CDReadPacing) 
 
 @Test(arguments: [CD_READ_STEADY, CD_READ_BURST])
 func stopWakesAPacedProducerInsteadOfWaitingOutItsRefillWait(_ pacing: CDReadPacing) async throws {
-    let capacity = Int(CD_PLAYBACK_BUFFER_FRAMES)
+    // Three seconds stays above the prefill watermark, so a full ring still waits about 100 ms under
+    // both pacings, but refills five times faster than the default ring under the sanitizers.
+    let capacity = 3 * Int(CD_DA_SAMPLE_RATE)
     let source = TestPCMSource(frameCount: UInt64(capacity * 2), readPacing: pacing)
-    let playback = try OfflinePCMPlayback(source: source)
-    // A full ring waits about 100 ms before checking again; a missed wake-up would show in the joins.
+    let playback = try OfflinePCMPlayback(source: source, bufferFrames: capacity)
+    // A missed wake-up would show in the joins as the remainder of that wait.
     var slowest = Duration.zero
     for _ in 1...5 {
         try playback.prepare()
