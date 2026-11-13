@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-11-13
+
 ### Performance
 
 - Reduce playback CPU and wakeups by isolating the once-per-second readout
@@ -363,7 +365,8 @@ BDR-XS07U USB drive.
   - the full [behaviour specification and development log](docs/DEVELOPMENT_LOG.md).
 - A GitHub Actions workflow that runs the offline test suite on macOS.
 
-[Unreleased]: https://github.com/ylau674/CD-player/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/ylau674/CD-player/compare/v1.4.1...HEAD
+[1.4.1]: https://github.com/ylau674/CD-player/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/ylau674/CD-player/compare/v1.3.5...v1.4.0
 [1.3.5]: https://github.com/ylau674/CD-player/compare/v1.3.4...v1.3.5
 [1.3.4]: https://github.com/ylau674/CD-player/compare/v1.3.3...v1.3.4
