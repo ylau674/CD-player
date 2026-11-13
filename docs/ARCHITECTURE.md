@@ -108,7 +108,10 @@ formats. It is used only for approved crash-recovery tests.
    discovered later. The engine records the first decoded frame, and its
    snapshot reports decoding only once the playing position reaches it,
    because the producer runs up to a buffer ahead of playback. The producer
-   writes to a 15-second ring of 661,500 stereo frames. Each start chooses
+   writes to a 15-second ring of 661,500 stereo frames. When the ring is above
+   its low-water mark, the producer waits on a condition variable for the
+   predicted drain interval (capped at 100 ms); stop broadcasts to wake it
+   promptly. Each start chooses
    the ring's sample width: Int32 only when HDCD decoding could begin in that
    run, and otherwise the CD's own Int16 samples, which render to exactly the
    same Float32 values and checksum. Decoding could begin whenever it is on
@@ -136,9 +139,9 @@ formats. It is used only for approved crash-recovery tests.
    at or above the bar's top segment, and the view draws it in the power
    button's red. Playback snapshots distinguish intentional HDMI/DisplayPort
    lead-in silence from advancing source audio.
-   Once fully shown, the meters read on a plain 15 Hz main-run-loop timer
+   Once fully shown, the meters read on a plain 10 Hz main-run-loop timer
    only while playing and while the player window is visible (not hidden,
-   miniaturized, fully occluded or off-screen); the 100 ms status poll does not
+   miniaturized, fully occluded or off-screen); the 200 ms status poll does not
    touch the meter. `AudioLevelMeterDriver` runs that timer and hands on a
    reading only when a lit or held segment changes. AppKit's
    `AudioLevelBarsView` then recolours only the segments that changed. Each
@@ -211,10 +214,12 @@ formats. It is used only for approved crash-recovery tests.
    and AppKit layers. Application appearance, transparency, audio and window
    size are untouched; Reduce transparency still uses a solid fill in the
    selected appearance.
-7. **Status.** `PlayerModel` polls the engine snapshot every 100 ms for the
+7. **Status.** `PlayerModel` polls the engine snapshot every 200 ms for the
    current frame, buffering, end of disc and concealed sectors, and derives
    every string the view shows (`trackText`, `timeText`, `statusText`,
-   `formatText`).
+   `formatText`). The separate `PlayerClock` notifies only when the displayed
+   track or whole second changes; the AppKit `PlayerReadout` listens directly
+   and redraws only changed text lines, without invalidating the SwiftUI panel.
 
 ## Concurrency model
 

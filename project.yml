@@ -37,6 +37,7 @@ targets:
       - App/AudioLevelBars.swift
       - App/PlayerPalette.swift
       - App/PlayerView.swift
+      - App/PlayerReadout.swift
       - App/PlayerCommands.swift
       - App/PanelTransparencyMenu.swift
       - App/PlayerWindow.swift

@@ -19,6 +19,27 @@ final class OutputStatusLineTests: XCTestCase {
         )
     }
 
+    func testPlayerReadoutRefreshesFromItsClock() async throws {
+        let player = PlayerModel.offline()
+        var content = PlayerReadout.Content(player)
+        content.track = "01"
+        content.time = "00:00"
+        content.accessibilityLabel = "Track 1, elapsed 00:00"
+        let view = PlayerReadoutView(clock: player.clock, tint: .labelColor) { content }
+        XCTAssertEqual(view.timeLine.text, "00:00")
+        XCTAssertEqual(view.accessibilityLabel(), "Track 1, elapsed 00:00")
+
+        content.time = "00:01"
+        content.accessibilityLabel = "Track 1, elapsed 00:01"
+        XCTAssertEqual(view.timeLine.text, "00:00")
+        player.clock.objectWillChange.send()
+        await settle(0.01)
+
+        XCTAssertEqual(view.timeLine.text, "00:01")
+        XCTAssertEqual(view.accessibilityLabel(), "Track 1, elapsed 00:01")
+        try await player.shutdown()
+    }
+
     private func window(for view: NSView) -> NSWindow {
         let window = NSWindow(
             contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false
@@ -719,7 +740,7 @@ final class OutputStatusLineTests: XCTestCase {
         XCTAssertTrue(model.audioLevelsAreLive)
         XCTAssertTrue(bars.isRefreshing)
 
-        // Nothing else reads the levels here, and the position stays fresh for 0.2 s after a poll.
+        // Nothing else reads the levels here, and the position stays fresh for 0.3 s after a poll.
         await model.refreshPlayback()
         await settle(0.02)
         var reads = source.reads
@@ -910,7 +931,7 @@ final class OutputStatusLineTests: XCTestCase {
         XCTAssertLessThanOrEqual(peak.span.lowerBound - peak.barEnd, 3, "\(mode): the hold caps the bar")
         XCTAssertEqual(peak.colour, try XCTUnwrap(powerButtonRed(in: host)), "\(mode): the power button's red")
 
-        // With no further poll the position stops 0.2 s later, so the bar falls while the hold stays.
+        // With no further poll the position stops 0.3 s later, so the bar falls while the hold stays.
         source.level = AudioLevelPeaks(leftPeak: 0, rightPeak: 0)
         await settle(0.6)
         let falling = try XCTUnwrap(drawnPeakHold(in: host), "\(mode): the hold went before 1.5 s")

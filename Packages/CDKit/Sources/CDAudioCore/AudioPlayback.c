@@ -44,6 +44,9 @@ struct CDPlayback {
     uint64_t observedProducedFrames;
     uint64_t waitStartedNanos;
     _Atomic bool producerStop;
+    /* Paced waits sleep on this until the ring has drained to its watermark; a stop request wakes them. */
+    pthread_mutex_t producerWaitLock;
+    pthread_cond_t producerWake;
     _Atomic bool producerFailed;
     CDError producerError;
     _Atomic bool configurationChanged;
@@ -1781,7 +1784,11 @@ void cd_playback_enable_output(CDPlayback *p)
 void cd_playback_request_stop(CDPlayback *p)
 {
     atomic_store_explicit(&p->outputEnabled, false, memory_order_release);
+    /* Set under the lock, so a producer between its stop check and its wait cannot miss the signal. */
+    pthread_mutex_lock(&p->producerWaitLock);
     atomic_store_explicit(&p->producerStop, true, memory_order_release);
+    pthread_cond_broadcast(&p->producerWake);
+    pthread_mutex_unlock(&p->producerWaitLock);
 }
 
 bool cd_playback_read_cancelled(const CDPlayback *p)
@@ -1884,6 +1891,24 @@ static void finish_hdcd_decision(CDPlayback *p)
     atomic_store_explicit(&p->hdcdDecoded, p->hdcdDecodeActive, memory_order_release);
 }
 
+/* Paced reads wait about as long as the ring takes to play down to its watermark, rather than polling.
+   The margin covers the output consuming whole buffers, so the producer seldom wakes just short of the
+   watermark, and keeps a stalled output from waking it more often than every 5 ms. The ceiling notices
+   a ring that drains faster than real time within 100 ms. */
+#define PRODUCER_WAIT_MARGIN_NANOS (5u * 1000000u)
+#define PRODUCER_MAX_WAIT_NANOS (100u * 1000000u)
+
+static void producer_wait(CDPlayback *p, size_t frames)
+{
+    double nanos = (double)frames / p->source.format.sampleRate * 1e9 + PRODUCER_WAIT_MARGIN_NANOS;
+    uint64_t wait = nanos >= PRODUCER_MAX_WAIT_NANOS ? PRODUCER_MAX_WAIT_NANOS : (uint64_t)nanos;
+    struct timespec relative = {(time_t)(wait / 1000000000u), (long)(wait % 1000000000u)};
+    pthread_mutex_lock(&p->producerWaitLock);
+    if (!atomic_load_explicit(&p->producerStop, memory_order_acquire))
+        pthread_cond_timedwait_relative_np(&p->producerWake, &p->producerWaitLock, &relative);
+    pthread_mutex_unlock(&p->producerWaitLock);
+}
+
 static void *produce_audio(void *context)
 {
     CDPlayback *p = context;
@@ -1900,8 +1925,9 @@ static void *produce_audio(void *context)
     bool refilling = true;
     while (cursor < p->totalFrames && !atomic_load_explicit(&p->producerStop, memory_order_acquire)) {
         if (p->source.readPacing != CD_READ_UNPACED && !refilling) {
-            if (cd_ring_available(p->ring) > lowWatermark) {
-                sleep_milliseconds(5);
+            size_t available = cd_ring_available(p->ring);
+            if (available > lowWatermark) {
+                producer_wait(p, available - lowWatermark);
                 continue;
             }
             refilling = true;
@@ -2165,6 +2191,18 @@ CDPlayback *cd_playback_create_source_with_levels(CDPCMSource source, size_t buf
         cd_ring_destroy(p->ring);
         free(p);
         fail(error, CD_CORE_AUDIO_ERROR, 0, "Lock-free playback tracking is unavailable");
+        return NULL;
+    }
+    int waitStatus = pthread_mutex_init(&p->producerWaitLock, NULL);
+    if (waitStatus == 0) {
+        waitStatus = pthread_cond_init(&p->producerWake, NULL);
+        if (waitStatus != 0) pthread_mutex_destroy(&p->producerWaitLock);
+    }
+    if (waitStatus != 0) {
+        release_hdcd_storage(p);
+        cd_ring_destroy(p->ring);
+        free(p);
+        fail(error, CD_PRODUCER_ERROR, waitStatus, "Cannot create the PCM producer's wait");
         return NULL;
     }
     return p;
@@ -2735,6 +2773,8 @@ int cd_playback_destroy(CDPlayback *p, CDError *error)
     cd_ring_destroy(p->ring);
     release_hdcd_storage(p);
     if (p->source.destroy) p->source.destroy(p->source.context);
+    pthread_cond_destroy(&p->producerWake);
+    pthread_mutex_destroy(&p->producerWaitLock);
     free(p);
     return CD_OK;
 }

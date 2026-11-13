@@ -26,6 +26,14 @@ public enum PlayerErrorKind: String, Sendable {
     case audio = "Audio error"
 }
 
+/// Tells views when the displayed track or second changes. It is apart from `PlayerModel` so the
+/// once-a-second tick of a playing disc re-evaluates only the readout, not the whole panel and menu bar.
+/// It holds no state; `PlayerModel` sends its changes on the main actor.
+public final class PlayerClock: ObservableObject {
+    // Explicit, because the synthesized publisher finds its storage by reflection on every access.
+    public let objectWillChange = ObservableObjectPublisher()
+}
+
 @MainActor
 public final class PlayerModel: ObservableObject {
     @Published public private(set) var disc: Disc? = .demo
@@ -43,11 +51,11 @@ public final class PlayerModel: ObservableObject {
             }
         }
     }
-    /// Not `@Published`: playback polls it ten times a second, but the display shows only the
-    /// track and whole seconds, so views are told only when those change.
+    /// Not `@Published`: playback polls it five times a second, but the display shows only the
+    /// track and whole seconds, so only `clock` tells views, and only when those change.
     public private(set) var currentFrame: UInt64 = 0 {
         willSet {
-            if clockReading(at: newValue) != clockReading(at: currentFrame) { objectWillChange.send() }
+            if clockReading(at: newValue) != clockReading(at: currentFrame) { clock.objectWillChange.send() }
         }
         didSet {
             if currentFrame != oldValue && (state != .playing || currentFrame < oldValue) {
@@ -60,6 +68,13 @@ public final class PlayerModel: ObservableObject {
     private var displayLatencyFrames: UInt64 = 0
     private var displayFrameFloor: UInt64 = 0
     private var displayPositionUpdatedAt: ContinuousClock.Instant?
+    /// The display shows whole seconds, so five polls a second are enough; each one wakes the main thread.
+    static let statusPollInterval: Duration = .milliseconds(200)
+    /// Between polls the meters move the position on with the clock, but no further than this past the
+    /// last poll, so a late or stopped poll cannot run them ahead of playback. One poll plus a margin.
+    static let audioLevelPositionLead: Double = 0.3
+    /// The views showing the track and time observe this as well as the model.
+    public let clock = PlayerClock()
     @Published public private(set) var showsAudioLevels = false
     /// Set when the window reports the meters fully shown and cleared the moment they are hidden. The meters
     /// measure only while it is set: never while the window extends or shrinks, or while they are closed.
@@ -411,7 +426,9 @@ public final class PlayerModel: ObservableObject {
         let base = displayFrame(at: currentFrame)
         guard state == .playing, !playbackIsBuffering, !playbackIsInLeadIn,
               let displayPositionUpdatedAt, let disc else { return base }
-        let elapsed = min(max(audioLevelElapsedSeconds(from: displayPositionUpdatedAt, to: now), 0), 0.2)
+        let elapsed = min(
+            max(audioLevelElapsedSeconds(from: displayPositionUpdatedAt, to: now), 0), Self.audioLevelPositionLead
+        )
         let maxAdvance = UInt64(elapsed * Double(sourceFormat.sampleRate))
         return base + min(maxAdvance, disc.totalFrames - base)
     }
@@ -2177,7 +2194,7 @@ public final class PlayerModel: ObservableObject {
         monitor = Task { [weak self] in
             while !Task.isCancelled {
                 do {
-                    try await Task.sleep(for: .milliseconds(100))
+                    try await Task.sleep(for: Self.statusPollInterval)
                 } catch is CancellationError {
                     return
                 } catch {

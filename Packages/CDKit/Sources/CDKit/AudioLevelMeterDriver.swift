@@ -11,7 +11,7 @@ extension Timer: AudioLevelRefreshTimer {}
 /// and draws only when a lit or held segment changes.
 @MainActor
 public final class AudioLevelMeterDriver {
-    public static let refreshInterval: TimeInterval = 1.0 / 15
+    public static let refreshInterval: TimeInterval = 1.0 / 10
     /// Makes a repeating timer that calls `tick` on the main actor until `tick` returns false.
     public typealias TimerFactory = @MainActor (
         _ interval: TimeInterval, _ tick: @escaping @MainActor () -> Bool

@@ -23,6 +23,10 @@ reading when visible again. The same command shrinks the window back. They
 show the level of the source, the disc's own samples, measured as the disc is
 read. The audio callback does not change, so the output stays bit-identical.
 
+The current AppKit meter refresh rate is 10 Hz (reduced from the 15 Hz
+described in the earlier implementation notes below). It changes only how
+often the display samples and redraws level segments, not the captured PCM.
+
 ## Behaviour
 
 ### Showing and hiding
@@ -484,6 +488,18 @@ same CD, measured 3.9% before and 2.7% after with the meters shown, and 2.0%
 hidden. The meters' own cost fell from about 1.9 to about 0.7 points. Most of
 the remainder is the 15 Hz timer reading the meter. See
 [the development log](DEVELOPMENT_LOG.md#meter-segments-as-layers-2026-11-04).
+
+### Current 10 Hz refresh (2026-11-13)
+
+The meter timer now runs at 10 Hz instead of 15 Hz, an owner-approved
+trade-off to reduce CPU while keeping the bars responsive. The playback
+status poll is 5 Hz; the meter still reads its level table directly on its
+own timer, only while fully shown and visible.
+
+In a 60-second Release sample on the test Mac, playback used 1.21% CPU with
+meters shown, compared with 2.74% in the 1.4.0 baseline. See the
+[CPU optimization log](DEVELOPMENT_LOG.md#cpu-optimization-2026-11-13) for
+the hidden-meter and wakeup measurements and test details.
 
 ## Out of scope
 

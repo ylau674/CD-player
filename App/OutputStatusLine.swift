@@ -96,7 +96,7 @@ final class OutputStatusLineView: NSView, NSViewToolTipOwner {
     }
 
     func update(_ content: OutputStatusLine.Content, reduceMotion: Bool) {
-        // SwiftUI updates the view on every clock tick; redraw only what changed.
+        // SwiftUI updates the view whenever the player changes; redraw only what changed.
         guard content != self.content || reduceMotion != self.reduceMotion else { return }
         self.content = content
         self.reduceMotion = reduceMotion
@@ -145,8 +145,16 @@ final class OutputStatusLineView: NSView, NSViewToolTipOwner {
 
     private var isVisibleOnScreen: Bool { window?.occlusionState.contains(.visible) == true }
 
+    /// SwiftUI asks for the ideal width in every layout pass of the player, and the font never changes.
+    private static var measuredWidths: [String: Double] = [:]
+
     private static func measure(_ text: String) -> Double {
-        Double(ceil(NSAttributedString(string: text, attributes: [.font: font]).size().width))
+        if let width = measuredWidths[text] { return width }
+        let width = Double(ceil(NSAttributedString(string: text, attributes: [.font: font]).size().width))
+        // Statuses and output names are few; the bound only stops unusual churn from growing it.
+        if measuredWidths.count >= 64 { measuredWidths.removeAll(keepingCapacity: true) }
+        measuredWidths[text] = width
+        return width
     }
 
     private func apply() {
