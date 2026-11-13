@@ -14,7 +14,7 @@ body:
     attributes:
       label: CD Player version
       description: From CD Player > About CD Player.
-      placeholder: "1.4.0"
+      placeholder: "1.4.1"
     validations:
       required: true
   - type: input

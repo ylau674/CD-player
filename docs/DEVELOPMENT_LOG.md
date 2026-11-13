@@ -6509,3 +6509,63 @@ reported.
   the view correctly suppressed scrolling while fully occluded. The full
   suite excluding that one test passed all 36 remaining tests; the failure is
   recorded rather than treated as a pass.
+
+## Version 1.4.1 (2026-11-13)
+
+The owner asked to install the CPU work in Applications and chose to release
+it as version 1.4.1, published like 1.4.0. It ships the CPU optimization above
+(PR #6). Playback, the bit-exact PCM path and the panel's appearance are
+unchanged.
+
+The first ThreadSanitizer run of the versioned tree failed
+`stopWakesAPacedProducerInsteadOfWaitingOutItsRefillWait` under both pacings.
+Its stop timing passed; the shared five-second `waitUntil` expired while the
+default 15-second ring refilled five times under sanitizer load. The test now
+uses a three-second ring, which still sits above the two-second prefill
+watermark, so a full ring waits about 98 ms with steady pacing and the 100 ms
+cap with burst pacing, as before. With the stop broadcast temporarily removed,
+the test failed with stops of 99 ms and 105 ms; with it restored, both cases
+passed in under a second.
+
+On the tree that was packaged, with the version and build number already
+changed:
+
+- the 468 CDKit and 29 AudioCheck tests pass normally and under both
+  AddressSanitizer and ThreadSanitizer, with no sanitizer diagnostics;
+- all 37 native UI tests pass, including the output-name scrolling test. Its
+  earlier failure followed the test window being reported as occluded, which
+  did not recur.
+
+Version 1.4.1 (build 11) is packaged as `CDPlayer-1.4.1-macOS.zip`. The
+packaging script confirmed the bundle identifier, the credits and the
+copyright string, and that the app is `arm64` only. The extracted app was
+checked for:
+
+- version 1.4.1, build 11 and the bundle identifier;
+- `LSMinimumSystemVersion` 26.0, and `minos 26.0` in the executable;
+- the `arm64` architecture only;
+- a strictly valid ad-hoc signature with the hardened runtime;
+- no home-folder paths or personal names in its binary.
+
+The package SHA-256 is:
+
+```text
+a1901db2266f1251f77892e264e8f6313e6ecf4817f2fc4e6a003d2c2e14fd00
+```
+
+With no CD Player running and no `ChangedOutputRates` record pending, the
+installed 1.4.0 was moved to the Trash and the app from the ZIP was installed
+as `/Applications/CDPlayer.app`. The installed app:
+
+- reports 1.4.1 (build 11), `arm64` only and the bundle identifier
+  `io.github.ylau674.CDPlayer`;
+- is identical to the ZIP's app;
+- passes strict code-signature verification with an ad-hoc signature and the
+  hardened runtime, with CDHash `bae9fef4991a5cfad12d22ba1a7567d5cd482488`;
+- has no quarantine flag. `spctl` rejects it, as expected for an app that is
+  not notarized.
+
+The settings domain is unchanged, so the saved appearance, background
+transparency, output choice and Decode HDCD setting carry over. Because the
+ad-hoc signature changed, macOS may ask again for removable-volume access at
+the first Play. The app was not launched as part of the installation.

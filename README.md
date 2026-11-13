@@ -21,7 +21,7 @@ concealment instead of noisy re-reads.
 is attached, so the display reads NO DRIVE. The meters stay dark while
 stopped.*
 
-**Status:** [version 1.4.0 is released](https://github.com/ylau674/CD-player/releases/tag/v1.4.0).
+**Status:** [version 1.4.1 is released](https://github.com/ylau674/CD-player/releases/tag/v1.4.1).
 M6.1–M6.5, M8 and M9 are complete and hardware-checked on one
 Mac with a Pioneer BDR-XS07U drive. Tested outputs include the built-in
 speakers and wired headphones, beyerdynamic PRO X, Sony WALKMAN USB DAC,
@@ -31,6 +31,11 @@ See the [changelog](CHANGELOG.md), [audio-output validation record](docs/AUDIO_O
 [audio-level validation record](docs/AUDIO_LEVELS_ROADMAP.md),
 [HDCD validation record](docs/HDCD_ROADMAP.md)
 and [known limitations](#known-limitations).
+
+Version 1.4.1 lowers CPU use during playback: on the test Mac, about 0.9% of
+one core with the meters hidden and 1.2% with them shown, down from 2.2% and
+2.7% in 1.4.0, with about 90% fewer wakeups. The status refreshes at 5 Hz and
+the meters at 10 Hz. Playback and the panel's appearance are unchanged.
 
 Version 1.4.0 makes the player panel Liquid Glass in the clear style, with
 system text colours and no border. View › Appearance offers Follow System (the
@@ -239,7 +244,7 @@ runtime and an ad-hoc signature. It verifies the build, including that the app
 contains no other architecture, and writes
 `build/packages/CDPlayer-<version>-macOS.zip`. Install by dragging
 `CDPlayer.app` from the ZIP into `/Applications`.
-The current [1.4.0 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.4.0/CDPlayer-1.4.0-macOS.zip)
+The current [1.4.1 release ZIP](https://github.com/ylau674/CD-player/releases/download/v1.4.1/CDPlayer-1.4.1-macOS.zip)
 is also available on GitHub. Compare its SHA-256 with the digest on the
 release page; see [security](SECURITY.md).
 
