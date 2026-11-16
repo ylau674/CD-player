@@ -2,8 +2,7 @@ import CDAudioCore
 import Foundation
 
 /// Blocking reads run only on the PCM producer, never the main, cooperative or HAL threads.
-/// Samples are interleaved Int16 values in `format`; playback accepts only a stereo format, so they are
-/// left/right pairs. Reads may stop at a track boundary.
+/// The read variant must match `format.bitsPerChannel`; stereo samples are interleaved left/right pairs.
 protocol PCMSource: Sendable {
     var format: AudioSourceFormat { get }
     var frameCount: UInt64 { get }
@@ -11,11 +10,18 @@ protocol PCMSource: Sendable {
     var hdcdEligible: Bool { get }
     func read(at frame: UInt64, maxFrames: Int) throws -> [Int16]
     func read(at frame: UInt64, maxFrames: Int, context: PCMReadContext) throws -> PCMReadResult
+    func read24(at frame: UInt64, maxFrames: Int, context: PCMReadContext) throws -> PCM24ReadResult
 }
 
 extension PCMSource {
     var readPacing: CDReadPacing { CD_READ_UNPACED }
     var hdcdEligible: Bool { false }
+    func read(at frame: UInt64, maxFrames: Int) throws -> [Int16] {
+        throw CDReadError(.failed, "The PCM source does not provide 16-bit samples.")
+    }
+    func read24(at frame: UInt64, maxFrames: Int, context: PCMReadContext) throws -> PCM24ReadResult {
+        throw CDReadError(.failed, "The PCM source does not provide 24-bit samples.")
+    }
     func read(at frame: UInt64, maxFrames: Int, context: PCMReadContext) throws -> PCMReadResult {
         PCMReadResult(samples: try read(at: frame, maxFrames: maxFrames))
     }
@@ -34,6 +40,13 @@ struct PCMReadContext: Sendable {
 
 struct PCMReadResult: Sendable {
     let samples: [Int16]
+    var trackNumber: UInt32 = 0
+    var concealedSectors: UInt64 = 0
+    var unverified = false
+}
+
+struct PCM24ReadResult: Sendable {
+    let samples: [Int32]
     var trackNumber: UInt32 = 0
     var concealedSectors: UInt64 = 0
     var unverified = false
@@ -107,9 +120,11 @@ func makePCMPlayback(
 ) throws -> OpaquePointer {
     let levelTable = try levelSource?.playbackTable()
     let context = Unmanaged.passRetained(PCMSourceContext(source))
+    let wideSource = source.format.bitsPerChannel == 24
     let descriptor = CDPCMSource(
         frameCount: source.frameCount, context: context.toOpaque(),
-        read: readPCMSource, destroy: releasePCMSource, readPacing: source.readPacing,
+        read: wideSource ? nil : readPCMSource, readWide: wideSource ? readWidePCMSource : nil,
+        destroy: releasePCMSource, readPacing: source.readPacing,
         format: source.format.cValue, hdcdEligible: source.hdcdEligible
     )
     var error = CDError()
@@ -126,6 +141,51 @@ func makePCMPlayback(
         throw AudioPlaybackError(error)
     }
     return playback
+}
+
+private func readWidePCMSource(
+    _ context: UnsafeMutableRawPointer?, _ frame: UInt64, _ stereo: UnsafeMutablePointer<Int32>?,
+    _ capacity: Int, _ request: UnsafePointer<CDPCMReadContext>?,
+    _ reply: UnsafeMutablePointer<CDPCMReadResult>?, _ error: UnsafeMutablePointer<CDError>?
+) -> Int32 {
+    reply?.pointee = CDPCMReadResult()
+    guard let context, let stereo, let request, let reply, let playback = request.pointee.playback,
+          capacity > 0, capacity <= Int.max / 2 else {
+        let failure = CDError(result: CD_INVALID_ARGUMENT, message: "The PCM producer supplied an invalid read request.")
+        error?.pointee = failure
+        return failure.code
+    }
+    return autoreleasepool {
+        let source = Unmanaged<PCMSourceContext>.fromOpaque(context).takeUnretainedValue().source
+        let token = PCMReadToken(pointer: playback)
+        let readContext = PCMReadContext(
+            bufferedFrames: request.pointee.bufferedFrames, buffering: request.pointee.buffering,
+            beginsPlayback: request.pointee.beginsPlayback,
+            isCancelled: { cd_playback_read_cancelled(token.pointer) }
+        )
+        do {
+            let result = try source.read24(at: frame, maxFrames: capacity, context: readContext)
+            let samples = result.samples
+            guard samples.count.isMultiple(of: 2), samples.count / 2 <= capacity else {
+                let failure = CDError(result: CD_PRODUCER_ERROR, message: "The PCM source returned an invalid stereo buffer.")
+                error?.pointee = failure
+                return failure.code
+            }
+            samples.withUnsafeBufferPointer {
+                if let base = $0.baseAddress { stereo.update(from: base, count: samples.count) }
+            }
+            reply.pointee = CDPCMReadResult(
+                framesRead: samples.count / 2, trackNumber: result.trackNumber,
+                concealedSectors: result.concealedSectors,
+                unverified: result.unverified
+            )
+            return Int32(CD_OK.rawValue)
+        } catch let failure {
+            let failure = CDError(sourceError: failure)
+            error?.pointee = failure
+            return failure.code
+        }
+    }
 }
 
 private func readPCMSource(

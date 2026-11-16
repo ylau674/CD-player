@@ -25,7 +25,7 @@ and engines.
 │   ├─ PlaybackEngine ← CoreAudioPlaybackEngine (demo tones or DiscPCMSource)│
 │   ├─ AudioLevelSource ← CoreAudioLevelSource ─ atomic source-peak reads    │
 │   ├─ AudioLevelMeter ─ dBFS segments, fall and peak hold                   │
-│   ├─ OutputRateControl ← CoreAudioOutputRateControl ─ 44.1 kHz switch      │
+│   ├─ OutputRateControl ← CoreAudioOutputRateControl ─ source-rate switch   │
 │   └─ SleepPreventing / SystemPowerMonitoring ─ stay awake, pause on sleep  │
 └───────────────────────────────────┬────────────────────────────────────────┘
                                     │ C ABI
@@ -33,7 +33,7 @@ and engines.
 │ Pinned BSD-licensed libhdcd decoder, called only on the PCM producer       │
 └───────────────────────────────────┬────────────────────────────────────────┘
 ┌──────────────────────────── CDAudioCore (C) ───────────────────────────────┐
-│ CDDiscReader.c ─ DKIOCCDREAD / READTOC / GET/SETSPEED, whole-disc open only│
+│ CDDiscReader.c ─ CD ioctls + read-only 2,048-byte data-sector reads        │
 │ AudioPlayback.c ─ output choice, rate set/restore, HDCD producer, IOProc   │
 │ AudioLevels.c ─ atomic source peaks, outside the render callback           │
 │ PCMBuffer.c ─ 15 s SPSC ring, 16- or 32-bit, pages returned when stopped   │
@@ -47,7 +47,7 @@ and engines.
 | `CDPlayer` (`App/`) | macOS app | The window, display, buttons and menus. It creates one `PlayerModel` with the real services and calls `shutdown()` before quitting. |
 | `CDKit` | Swift library | The player model, drive discovery, disc sessions, read recovery, playback, wired-output discovery and selection, output-rate control, HDCD preference persistence and power handling. |
 | `HDCD` | C target | Pinned libhdcd decoder; source and BSD license are vendored under `Packages/CDKit/Sources/HDCD`. |
-| `CDAudioCore` | C library | CD I/O, Core Audio, PCM ring, demo tones, source peaks and producer-side HDCD integration; no Swift dependencies. |
+| `CDAudioCore` | C library | Read-only CD and 2,048-byte data-sector I/O, Core Audio, PCM ring, demo tones, source peaks and producer-side HDCD integration; no Swift dependencies. |
 | `AudioCheck` | executable | Read-only discovery, inspection and configuration snapshots; offline before/during/after comparison; a separately activated silent disc pipeline, optionally targeting a wired `--output-uid` or with HDCD decoding off (`--hdcd-off`), that reports each run's HDCD state, physical output depth and rendered checksum; and a developer-only, read-only PCM capture of one track to a WAV file (`--capture-pcm`). |
 | `HDCDCheck` | developer executable | Converts interleaved S16LE PCM with the pinned libhdcd decoder for comparison with FFmpeg's `hdcd` filter, used by the temporary-sample check script; with `--seek-gaps`, measures how much audio passes between a decoder reset and the next HDCD packet. |
 | `OpticalCheck` | executable | A hardware check: drive and TOC listing, notification watching, a read check, and a deliberate eject. |
@@ -117,7 +117,10 @@ formats. It is used only for approved crash-recovery tests.
    same Float32 values and checksum. Decoding could begin whenever it is on
    and the output carries 20 bits or more, on any audio CD, because detection
    continues during play and can start decoding at a later track. Source peak measurement still uses the
-   original Int16 values. Pacing follows consumption, so a quiet drive is not
+   original Int16 values. A 24-bit source always uses the Int32 ring: its
+   `readWide` callback returns sign-extended samples, which the producer
+   range-checks and left-justifies. Its prefill, low-water mark and 10 ms
+   meter slots are counted in its own frames. Pacing follows consumption, so a quiet drive is not
    kept spinning at full speed.
 5. **Output.** A Core Audio IOProc, the HAL render callback, converts Int32 to
    Float32 with the exact factor 2⁻³¹. It does no allocation, takes no lock,
@@ -278,8 +281,9 @@ Rules that keep this safe:
   audio with the declared channel count. `PlayerModel.sourceFormat` passes
   it to output inspection, discovery and the rate switch, and
   `CDPCMSource.format` passes it to C. The C pipeline declares what it can
-  carry unchanged: `cd_source_format_supported` accepts only 44.1 kHz,
-  16-bit stereo. `cd_playback_create_source` refuses anything else with
+  carry unchanged: `cd_source_format_supported` accepts 44.1 kHz, 16-bit
+  stereo, and 24-bit stereo PCM at 44.1 or 88.2 kHz for sources that declare
+  it. `cd_playback_create_source` refuses anything else with
   `CD_FORMAT_UNAVAILABLE` before touching an output. The output rate, the
   format checks and the labels all follow the source rate. Pre-emphasis is
   detected but still played as recorded. HDCD and MQA-CD discs are Red Book

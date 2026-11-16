@@ -80,6 +80,75 @@ func readError(_ body: () throws -> Void) -> CDReadError? {
     #expect(cd_disc_set_speed(ends[0], 176, &error) == failed)
 }
 
+@Test func dataSectorReadsUse2048ByteAbsoluteOffsets() throws {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("cdkit-data-\(UUID().uuidString)")
+    let sectorBytes = Int(CD_DATA_SECTOR_BYTES)
+    let fixture = Data(repeating: 0x11, count: sectorBytes)
+        + Data(repeating: 0x22, count: sectorBytes)
+        + Data(repeating: 0x33, count: sectorBytes)
+    #expect(FileManager.default.createFile(atPath: url.path, contents: fixture))
+    defer { try? FileManager.default.removeItem(at: url) }
+
+    let descriptor = open(url.path, O_RDONLY | O_CLOEXEC)
+    try #require(descriptor >= 0)
+    defer { close(descriptor) }
+    var buffer = [UInt8](repeating: 0, count: 2 * sectorBytes)
+    var error = CDError()
+    let result = cd_disc_read_data(descriptor, 1, 2, &buffer, buffer.count, &error)
+
+    #expect(result == Int32(CD_OK.rawValue))
+    #expect(Data(buffer) == Data(repeating: 0x22, count: sectorBytes) + Data(repeating: 0x33, count: sectorBytes))
+}
+
+@Test func dataSectorReadsRejectInvalidAndIncompleteRequests() throws {
+    var ends: [Int32] = [-1, -1]
+    try #require(pipe(&ends) == 0)
+    defer { ends.forEach { close($0) } }
+    let invalid = Int32(CD_INVALID_ARGUMENT.rawValue)
+    var buffer = [UInt8](repeating: 0, count: Int(CD_MAX_DATA_READ_SECTORS) * Int(CD_DATA_SECTOR_BYTES))
+    var error = CDError()
+    #expect(cd_disc_read_data(-1, 0, 1, &buffer, buffer.count, &error) == invalid)
+    #expect(cd_disc_read_data(ends[0], 0, 0, &buffer, buffer.count, &error) == invalid)
+    #expect(cd_disc_read_data(ends[0], 0, CD_MAX_DATA_READ_SECTORS + 1, &buffer, buffer.count, &error) == invalid)
+    #expect(cd_disc_read_data(ends[0], 0, 1, &buffer, Int(CD_DATA_SECTOR_BYTES) - 1, &error) == invalid)
+    #expect(cd_disc_read_data(ends[0], 0, 1, nil, buffer.count, &error) == invalid)
+    #expect(cd_disc_read_data(ends[0], UInt64.max, 1, &buffer, buffer.count, &error) == invalid)
+
+    let failed = Int32(CD_DISC_FAILED.rawValue)
+    #expect(cd_disc_read_data(ends[0], 0, 1, &buffer, buffer.count, &error) == failed)
+    #expect(error.systemStatus == ESPIPE)
+
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent("cdkit-short-data-\(UUID().uuidString)")
+    #expect(FileManager.default.createFile(
+        atPath: url.path,
+        contents: Data(repeating: 0x5A, count: Int(CD_DATA_SECTOR_BYTES))
+    ))
+    defer { try? FileManager.default.removeItem(at: url) }
+    let descriptor = open(url.path, O_RDONLY | O_CLOEXEC)
+    try #require(descriptor >= 0)
+    defer { close(descriptor) }
+    #expect(cd_disc_read_data(descriptor, 0, 2, &buffer, buffer.count, &error) == Int32(CD_DISC_READ_ERROR.rawValue))
+    #expect(error.systemStatus == EIO)
+}
+
+@Test func dvdAndBluRaySpeedRequestsUseTheirSDKDefaultsAndAreTestableOffline() throws {
+    #expect(cd_disc_data_min_speed(CD_DATA_DISC_DVD) == 1_350)
+    #expect(cd_disc_data_min_speed(CD_DATA_DISC_BLU_RAY) == 4_390)
+    var ends: [Int32] = [-1, -1]
+    try #require(pipe(&ends) == 0)
+    defer { ends.forEach { close($0) } }
+
+    var speed: UInt16 = 0
+    var error = CDError()
+    let failed = Int32(CD_DISC_FAILED.rawValue)
+    #expect(cd_disc_get_data_speed(ends[0], CD_DATA_DISC_DVD, &speed, &error) == failed)
+    #expect(error.systemStatus == ENOTTY)
+    #expect(cd_disc_set_data_speed(ends[0], CD_DATA_DISC_BLU_RAY, 4_390, &error) == failed)
+    #expect(error.systemStatus == ENOTTY)
+    #expect(cd_disc_get_data_speed(-1, CD_DATA_DISC_DVD, &speed, &error) == Int32(CD_INVALID_ARGUMENT.rawValue))
+    #expect(cd_disc_set_data_speed(-1, CD_DATA_DISC_BLU_RAY, 4_390, &error) == Int32(CD_INVALID_ARGUMENT.rawValue))
+}
+
 @Test func errorFlagReadsSplitIntoAudioAndFlags() {
     var interleaved = Data()
     for sector in 0..<2 {

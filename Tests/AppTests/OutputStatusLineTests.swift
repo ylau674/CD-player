@@ -119,6 +119,7 @@ final class OutputStatusLineTests: XCTestCase {
 
     func testOnlyTheNameScrollsWhileStatusAndIndicatorStayFixed() throws {
         let view = OutputStatusLineView(frame: NSRect(x: 0, y: 0, width: 368, height: 14))
+        view.windowIsVisible = { _ in true }
         let window = window(for: view)
         defer { window.close() }
         view.update(content(), reduceMotion: false)
@@ -167,11 +168,9 @@ final class OutputStatusLineTests: XCTestCase {
         XCTAssertNotEqual(view.scroller.animation(forKey: OutputStatusLineView.scrollKey)?.beginTime,
                           animation.beginTime)
 
-        window.orderOut(nil)
-        wait()
+        view.windowIsVisible = { _ in false }
         XCTAssertNil(view.scroller.animation(forKey: OutputStatusLineView.scrollKey))
-        window.orderFrontRegardless()
-        wait()
+        view.windowIsVisible = { _ in true }
         XCTAssertNotNil(view.scroller.animation(forKey: OutputStatusLineView.scrollKey))
         view.update(content(status: "CD PLAYING", name: "Speakers"), reduceMotion: false)
         XCTAssertNil(view.scroller.animation(forKey: OutputStatusLineView.scrollKey))
@@ -1250,6 +1249,7 @@ final class OutputStatusLineTests: XCTestCase {
         XCTAssertEqual(model.statusText, "DEMO READY")
         XCTAssertTrue(model.showsOutputRateSwitch)
         let line = try XCTUnwrap(descendant(OutputStatusLineView.self, in: host))
+        line.windowIsVisible = { _ in true }
         XCTAssertEqual(PlayerView.rowWidth, 390)
         XCTAssertEqual(line.bounds.width, 368, accuracy: 0.5)
         XCTAssertEqual(line.nameSpace.frame.width, PlayerView.rowWidth / 2, accuracy: 0.01)

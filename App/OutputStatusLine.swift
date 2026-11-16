@@ -65,6 +65,9 @@ final class OutputStatusLineView: NSView, NSViewToolTipOwner {
     let indicatorLayer = CATextLayer()
     private let statusElement = NSAccessibilityElement()
     private lazy var selectorElement = OutputSelectorElement(view: self)
+    var windowIsVisible: (NSWindow?) -> Bool = { $0?.occlusionState.contains(.visible) == true } {
+        didSet { restartScrolling() }
+    }
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -143,7 +146,7 @@ final class OutputStatusLineView: NSView, NSViewToolTipOwner {
 
     // MARK: Layout
 
-    private var isVisibleOnScreen: Bool { window?.occlusionState.contains(.visible) == true }
+    private var isVisibleOnScreen: Bool { windowIsVisible(window) }
 
     /// SwiftUI asks for the ideal width in every layout pass of the player, and the font never changes.
     private static var measuredWidths: [String: Double] = [:]

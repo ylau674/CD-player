@@ -1,10 +1,15 @@
 #include "CDAudioCore.h"
 
+#include <IOKit/storage/IOBDMediaBSDClient.h>
+#include <IOKit/storage/IOBDTypes.h>
 #include <IOKit/storage/IOCDMediaBSDClient.h>
 #include <IOKit/storage/IOCDTypes.h>
+#include <IOKit/storage/IODVDMediaBSDClient.h>
+#include <IOKit/storage/IODVDTypes.h>
 #include <IOKit/scsi/IOSCSIMultimediaCommandsDevice.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -133,6 +138,95 @@ int cd_disc_read(int descriptor, uint64_t firstSector, uint32_t sectorCount, boo
         return fail_errno(error, errno, "Cannot read audio sectors from the optical disc");
     if (request.bufferLength != sectorCount * block)
         return fail(error, CD_DISC_READ_ERROR, EIO, "The optical disc returned fewer audio bytes than requested.");
+    return CD_OK;
+}
+
+int cd_disc_read_data(int descriptor, uint64_t firstSector, uint32_t sectorCount,
+                      uint8_t *buffer, size_t capacity, CDError *error)
+{
+    const size_t sectorBytes = CD_DATA_SECTOR_BYTES;
+    if (descriptor < 0 || !buffer || sectorCount == 0 || sectorCount > CD_MAX_DATA_READ_SECTORS ||
+        capacity < (size_t)sectorCount * sectorBytes ||
+        firstSector > (uint64_t)INT64_MAX / sectorBytes) {
+        return fail(error, CD_INVALID_ARGUMENT, 0, "The data sector request is invalid.");
+    }
+
+    uint64_t offset = firstSector * sectorBytes;
+    size_t requestedBytes = (size_t)sectorCount * sectorBytes;
+    if (requestedBytes - 1 > (uint64_t)INT64_MAX - offset) {
+        return fail(error, CD_INVALID_ARGUMENT, 0, "The data sector request is invalid.");
+    }
+
+    size_t completed = 0;
+    while (completed < requestedBytes) {
+        ssize_t result = pread(descriptor, buffer + completed, requestedBytes - completed,
+                               (off_t)(offset + completed));
+        if (result < 0) {
+            if (errno == EINTR) continue;
+            return fail_errno(error, errno, "Cannot read data sectors from the optical disc");
+        }
+        if (result == 0) {
+            return fail(error, CD_DISC_READ_ERROR, EIO,
+                        "The optical disc returned fewer data bytes than requested.");
+        }
+        completed += (size_t)result;
+    }
+    return CD_OK;
+}
+
+static int data_speed_requests(CDDataDiscKind kind, unsigned long *get, unsigned long *set)
+{
+    if (!get || !set) return CD_INVALID_ARGUMENT;
+    switch (kind) {
+    case CD_DATA_DISC_DVD:
+        *get = DKIOCDVDGETSPEED;
+        *set = DKIOCDVDSETSPEED;
+        return CD_OK;
+    case CD_DATA_DISC_BLU_RAY:
+        *get = DKIOCBDGETSPEED;
+        *set = DKIOCBDSETSPEED;
+        return CD_OK;
+    default:
+        return CD_INVALID_ARGUMENT;
+    }
+}
+
+uint16_t cd_disc_data_min_speed(CDDataDiscKind kind)
+{
+    switch (kind) {
+    case CD_DATA_DISC_DVD: return kDVDSpeedMin;
+    case CD_DATA_DISC_BLU_RAY: return kBDSpeedMin;
+    default: return 0;
+    }
+}
+
+int cd_disc_get_data_speed(int descriptor, CDDataDiscKind kind,
+                           uint16_t *kilobytesPerSecond, CDError *error)
+{
+    unsigned long get = 0, set = 0;
+    if (descriptor < 0 || !kilobytesPerSecond ||
+        data_speed_requests(kind, &get, &set) != CD_OK) {
+        return fail(error, CD_INVALID_ARGUMENT, 0, "The data-disc speed request is invalid.");
+    }
+    (void)set;
+    uint16_t value = 0;
+    if (control(descriptor, get, &value) < 0)
+        return fail_errno(error, errno, "Cannot read the optical drive speed");
+    *kilobytesPerSecond = value;
+    return CD_OK;
+}
+
+int cd_disc_set_data_speed(int descriptor, CDDataDiscKind kind,
+                           uint16_t kilobytesPerSecond, CDError *error)
+{
+    unsigned long get = 0, set = 0;
+    if (descriptor < 0 || data_speed_requests(kind, &get, &set) != CD_OK) {
+        return fail(error, CD_INVALID_ARGUMENT, 0, "The data-disc speed request is invalid.");
+    }
+    (void)get;
+    uint16_t value = kilobytesPerSecond;
+    if (control(descriptor, set, &value) < 0)
+        return fail_errno(error, errno, "Cannot set the optical drive speed");
     return CD_OK;
 }
 

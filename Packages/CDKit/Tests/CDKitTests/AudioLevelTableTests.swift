@@ -88,7 +88,7 @@ private func makeTestSource(
     destroy: (@convention(c) (UnsafeMutableRawPointer?) -> Void)? = nil
 ) -> CDPCMSource {
     CDPCMSource(
-        frameCount: 8_192, context: context, read: read, destroy: destroy,
+        frameCount: 8_192, context: context, read: read, readWide: nil, destroy: destroy,
         readPacing: CD_READ_UNPACED, format: cd_source_format_compact_disc(), hdcdEligible: false
     )
 }
@@ -113,6 +113,32 @@ private func makeTestSource(
     #expect(firstSlot.rightPeak == 0)
     #expect(secondSlot.leftPeak == 32_768)
     #expect(secondSlot.rightPeak == 32_768)
+}
+
+@Test func levelTableMeasuresLeftJustified24BitSourceSamples() throws {
+    let table = try #require(cd_level_table_create())
+    defer { cd_level_table_destroy(table) }
+    let run = cd_level_table_begin_run(table)
+    let samples: [Int32] = [2_147_483_392, Int32.min, Int32.min, 2_147_483_392]
+    #expect(samples.withUnsafeBufferPointer {
+        cd_level_table_record_block_24(table, run, 0, $0.baseAddress, 2)
+    })
+
+    var peaks = CDLevelPeaks()
+    #expect(cd_level_table_read(table, run, 0, &peaks))
+    #expect(peaks.leftPeak == 32_768)
+    #expect(peaks.rightPeak == 32_768)
+}
+
+@Test func levelTableScalesMeterSlotsToTheActiveSampleRate() throws {
+    let table = try #require(cd_level_table_create())
+    defer { cd_level_table_destroy(table) }
+
+    let cdRun = cd_level_table_begin_run_for_rate(table, 44_100)
+    #expect(cd_level_table_slot_frames(table, cdRun) == 441)
+    let highRateRun = cd_level_table_begin_run_for_rate(table, 88_200)
+    #expect(cd_level_table_slot_frames(table, cdRun) == 0)
+    #expect(cd_level_table_slot_frames(table, highRateRun) == 882)
 }
 
 @Test func levelTableMergesBlocksThatShareASlot() throws {

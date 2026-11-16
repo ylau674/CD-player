@@ -70,8 +70,8 @@ typedef struct {
 
 /* Two-channel Red Book CD-DA: every standard audio CD and the simulated disc. */
 CDSourceFormat cd_source_format_compact_disc(void);
-/* Whether playback carries the format unchanged. The pipeline takes 16-bit stereo at the CD-DA
-   rate, so any other format is refused before an output is touched. */
+/* Whether playback carries the format unchanged: Red Book CD-DA, or stereo 24-bit PCM at
+   44.1 or 88.2 kHz. Any other format is refused before an output is touched. */
 bool cd_source_format_supported(CDSourceFormat format);
 
 typedef struct {
@@ -172,7 +172,7 @@ CDPageUsage cd_ring_page_usage(const CDRingBuffer *ring);
 size_t cd_ring_available(const CDRingBuffer *ring);
 size_t cd_ring_writable(const CDRingBuffer *ring);
 /* One producer and one consumer may operate concurrently. 16-bit frames are stored at the ring's
-   width, scaled by 65536 in a wide ring. A 16-bit ring accepts no 32-bit frames. */
+   width, scaled by 65536 in a wide ring. Wide input must be signed 32-bit normalized PCM. */
 size_t cd_ring_write(CDRingBuffer *ring, const int16_t *stereo, size_t frames);
 size_t cd_ring_write_32(CDRingBuffer *ring, const int32_t *stereo, size_t frames);
 CDRenderResult cd_ring_render(CDRingBuffer *ring, AudioBufferList *output,
@@ -201,11 +201,18 @@ void cd_level_table_destroy(CDLevelTable *table);
 /* Start only after the previous producer has stopped. Run IDs distinguish seeks
    and playback restarts; old slots are cleared before an 8-bit tag is reused. */
 uint32_t cd_level_table_begin_run(CDLevelTable *table);
+uint32_t cd_level_table_begin_run_for_rate(CDLevelTable *table, uint32_t sampleRate);
+/* Slot duration in frames for the matching current run; zero for a stale run. */
+uint32_t cd_level_table_slot_frames(const CDLevelTable *table, uint32_t run);
 /* Records max absolute Int16 sample values in each intersected 441-frame slot.
    One producer may write while any number of readers call read. */
 bool cd_level_table_record_block(CDLevelTable *table, uint32_t run,
                                  uint64_t startFrame, const int16_t *stereo,
                                  size_t frameCount);
+/* Records source peaks from 24-bit samples stored left-justified in signed 32-bit slots. */
+bool cd_level_table_record_block_24(CDLevelTable *table, uint32_t run,
+                                    uint64_t startFrame, const int32_t *stereo,
+                                    size_t frameCount);
 /* Returns false when the slot is absent, overwritten, or belongs to another run. */
 bool cd_level_table_read(const CDLevelTable *table, uint32_t run,
                          uint64_t frame, CDLevelPeaks *peaks);
@@ -267,7 +274,7 @@ typedef struct {
     bool unverified;
 } CDPCMReadResult;
 
-/* Blocking, seekable source of interleaved stereo Int16 PCM in the format it declares, which
+/* Blocking, seekable source of interleaved stereo PCM in the format it declares, which
    create_source checks and start uses to set the output rate.
    Read runs only on the producer thread, never the HAL callback. A successful
    read supplies 1..capacityFrames frames while inside frameCount; a short read
@@ -284,6 +291,9 @@ typedef struct {
     int (*read)(void *context, uint64_t frame, int16_t *stereo,
                 size_t capacityFrames, const CDPCMReadContext *request,
                 CDPCMReadResult *result, CDError *error);
+    int (*readWide)(void *context, uint64_t frame, int32_t *stereo,
+                    size_t capacityFrames, const CDPCMReadContext *request,
+                    CDPCMReadResult *result, CDError *error);
     void (*destroy)(void *context);
     CDReadPacing readPacing;
     CDSourceFormat format;
@@ -476,6 +486,20 @@ int cd_disc_read_toc(int descriptor, uint8_t *buffer, size_t capacity, size_t *l
    are followed by its 294 bytes of C2 error flags. */
 int cd_disc_read(int descriptor, uint64_t firstSector, uint32_t sectorCount, bool errorFlags,
                  uint8_t *buffer, size_t capacity, CDError *error);
+/* Reads 1-128 2,048-byte data sectors from a read-only whole-disc descriptor. */
+#define CD_DATA_SECTOR_BYTES 2048u
+#define CD_MAX_DATA_READ_SECTORS 128u
+int cd_disc_read_data(int descriptor, uint64_t firstSector, uint32_t sectorCount,
+                      uint8_t *buffer, size_t capacity, CDError *error);
+typedef enum {
+    CD_DATA_DISC_DVD = 0,
+    CD_DATA_DISC_BLU_RAY
+} CDDataDiscKind;
+uint16_t cd_disc_data_min_speed(CDDataDiscKind kind);
+int cd_disc_get_data_speed(int descriptor, CDDataDiscKind kind,
+                            uint16_t *kilobytesPerSecond, CDError *error);
+int cd_disc_set_data_speed(int descriptor, CDDataDiscKind kind,
+                            uint16_t kilobytesPerSecond, CDError *error);
 /* The SDK's kCDSpeedMin, in kB/s; it is a request, not a measured read rate. */
 uint16_t cd_disc_min_speed(void);
 uint32_t cd_disc_stream_accurate_mask(void);
