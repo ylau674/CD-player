@@ -6569,3 +6569,42 @@ The settings domain is unchanged, so the saved appearance, background
 transparency, output choice and Decode HDCD setting carry over. Because the
 ad-hoc signature changed, macOS may ask again for removable-volume access at
 the first Play. The app was not launched as part of the installation.
+
+## Wide PCM playback path (2026-11-16)
+
+**Change.** The playback core now carries stereo 24-bit PCM at 44.1 or
+88.2 kHz as well as Red Book CD audio. A playback source other than a CD can
+therefore use the same producer, ring, output selection and meters. No
+shipping source produces 24-bit PCM yet, and CD playback is unchanged and
+bit-exact.
+
+- `CDPCMSource` has a second callback, `readWide`, used when the source
+  declares 24 bits. It returns sign-extended 24-bit samples in 32-bit slots.
+  The producer refuses any sample outside the 24-bit range, then stores the
+  samples left-justified in the wide ring that HDCD decoding already uses. A
+  24-bit source cannot enable HDCD processing.
+- In Swift, `PCMSource.read24` feeds `readWide`, and `makePCMPlayback`
+  chooses the callback from the source's bit depth.
+- `cd_source_format_supported` accepts the new formats. Any other format is
+  still refused with `CD_FORMAT_UNAVAILABLE` before an output is touched, and
+  the message now names both supported families.
+- The 2-second prefill and the 10-second burst-read low watermark are
+  measured in the source's own frames, not fixed 44.1 kHz frame counts.
+- Audio-level slots cover 10 ms at the source rate: 441 frames at 44.1 kHz,
+  882 at 88.2 kHz. `cd_level_table_slot_frames` reports the current run's
+  slot size, and 24-bit peaks are taken from the top 16 bits.
+- `CDDiscReader` adds read-only 2,048-byte data-sector reads
+  (`cd_disc_read_data`, up to 128 sectors) and DVD and Blu-ray speed requests
+  with the SDK minimums, on the same read-only whole-disc descriptor. Nothing
+  in the app calls them yet.
+- The output status line takes an injectable window-visibility query that
+  defaults to AppKit's occlusion state. The XCTest host is never the active
+  app, so AppKit reports its windows as occluded; the native tests inject
+  visible and occluded states to check that the name scrolls, stops and
+  restarts.
+
+**Tests.** Offline tests cover 24-bit format acceptance and refusal, native
+88.2 kHz output-format selection, a 24-bit source through the producer to
+exact Float32 output, rate-scaled meter slots and 24-bit peaks, data-sector
+offsets and invalid or short reads, and DVD and Blu-ray speed requests on a
+descriptor that is not a drive.

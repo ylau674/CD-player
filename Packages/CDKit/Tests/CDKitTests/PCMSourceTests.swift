@@ -117,6 +117,16 @@ final class TestPCMSource: PCMSource {
     }
 }
 
+private struct TestPCM24Source: PCMSource {
+    let format = AudioSourceFormat(sampleRate: 88_200, bitsPerChannel: 24, channels: 2)
+    let frameCount: UInt64
+    let body: @Sendable (UInt64, Int) -> [Int32]
+
+    func read24(at frame: UInt64, maxFrames: Int, context: PCMReadContext) throws -> PCM24ReadResult {
+        PCM24ReadResult(samples: body(frame, maxFrames))
+    }
+}
+
 private func fakeSession(_ data: Data = tocFixture()) async throws -> (DiscSession, FakeCDSectorSource) {
     let table = try CDTableOfContents(data: data)
     let media = OpticalMedia(id: 10, bsdName: "disk4", contents: .audioCD(table), isMounted: false, isEjectable: true)
@@ -396,7 +406,8 @@ private struct PCMTestError: LocalizedError {
 
 @Test @MainActor func theCProducerRejectsAnOversizedNativeReadCountBeforeCopying() async throws {
     let source = CDPCMSource(
-        frameCount: 100, context: nil, read: oversizedNativePCMRead, destroy: nil, readPacing: CD_READ_UNPACED,
+        frameCount: 100, context: nil, read: oversizedNativePCMRead, readWide: nil,
+        destroy: nil, readPacing: CD_READ_UNPACED,
         format: cd_source_format_compact_disc(), hdcdEligible: false
     )
     var error = CDError()
@@ -412,7 +423,8 @@ private struct PCMTestError: LocalizedError {
 
 @Test @MainActor func theCProducerReportsAnUndocumentedSourceFailureExplicitly() async throws {
     let source = CDPCMSource(
-        frameCount: 100, context: nil, read: undocumentedNativePCMFailure, destroy: nil, readPacing: CD_READ_UNPACED,
+        frameCount: 100, context: nil, read: undocumentedNativePCMFailure, readWide: nil,
+        destroy: nil, readPacing: CD_READ_UNPACED,
         format: cd_source_format_compact_disc(), hdcdEligible: false
     )
     var error = CDError()
@@ -424,6 +436,27 @@ private struct PCMTestError: LocalizedError {
     #expect(error.code == Int32(CD_PRODUCER_ERROR.rawValue))
     #expect(error.systemStatus == Int32(CD_DISC_GONE.rawValue))
     #expect(decodeCString(error.message).hasPrefix("The PCM source failed without an error code"))
+}
+
+@Test @MainActor func theWidePCMProducerPreserves24BitSamplesAndUsesTheSourceRate() async throws {
+    let source = TestPCM24Source(frameCount: 17) { frame, count in
+        (0..<min(5, count)).flatMap { offset in
+            let value = Int32((frame + UInt64(offset)) % 2 == 0 ? 0x7f_ffff : -0x80_0000)
+            return [value, value == -0x80_0000 ? 0x7f_ffff : -value]
+        }
+    }
+    #expect(source.format.isPlayable)
+    let playback = try OfflinePCMPlayback(source: source, bufferFrames: 4_096)
+    try playback.prepare()
+    let samples = try await drainShortSource(playback.pointer, from: 0, to: source.frameCount)
+    let expected = (0..<17).flatMap { frame -> [Float] in
+        let value: Int32 = frame.isMultiple(of: 2) ? 0x7f_ffff : -0x80_0000
+        let right = value == -0x80_0000 ? 0x7f_ffff : -value
+        return [Float(value) / 8_388_608, Float(right) / 8_388_608]
+    }
+    #expect(samples == expected)
+    #expect(try playbackSnapshot(playback.pointer).currentFrame == source.frameCount)
+    _ = try await playback.stop()
 }
 
 @Test @MainActor func aBlockedDiscProducerMutesImmediatelyAndDiscardsItsLateRead() async throws {
@@ -604,7 +637,7 @@ private struct PCMTestError: LocalizedError {
     } catch let error as AudioPlaybackError {
         #expect(error.code == Int32(CD_FORMAT_UNAVAILABLE.rawValue))
         #expect(error.message == "This disc's audio (44.1 kHz, 16-bit, 4 channels) is not supported. " +
-            "CD Player plays 44.1 kHz 16-bit stereo audio CDs")
+            "Supported formats are 44.1 kHz 16-bit stereo CD audio and 24-bit stereo PCM at 44.1 or 88.2 kHz")
     } catch {
         Issue.record("Unexpected construction failure: \(error)")
     }
@@ -633,7 +666,7 @@ private struct PCMTestError: LocalizedError {
     }
     var error = CDError()
     let missingRead = CDPCMSource(
-        frameCount: 100, context: nil, read: nil, destroy: nil, readPacing: CD_READ_UNPACED,
+        frameCount: 100, context: nil, read: nil, readWide: nil, destroy: nil, readPacing: CD_READ_UNPACED,
         format: cd_source_format_compact_disc(), hdcdEligible: false
     )
     #expect(cd_playback_create_source(missingRead, 4_096, false, &error) == nil)

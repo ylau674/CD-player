@@ -30,7 +30,7 @@ public struct AudioSourceFormat: Hashable, Sendable {
     public var bytesPerFrame: UInt64 { UInt64(bitsPerChannel / 8) * UInt64(channels) }
     /// Frames in one 2,352-byte CD sector: 588 for 16-bit stereo.
     public var framesPerSector: UInt64 { bytesPerFrame == 0 ? 0 : UInt64(CD_SECTOR_BYTES) / bytesPerFrame }
-    /// Whether playback carries this format unchanged; it takes 16-bit stereo at the CD rate.
+    /// Whether playback can carry this format without resampling or truncating source precision.
     public var isPlayable: Bool { cd_source_format_supported(cValue) }
     /// The rate as the player names it, such as "44.1 kHz".
     public var rateText: String { Self.rateText(Double(sampleRate)) }

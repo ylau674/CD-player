@@ -42,7 +42,8 @@ public final class CoreAudioLevelSource: AudioLevelSource, @unchecked Sendable {
         let run = cd_level_table_current_run(table)
         guard run != 0 else { return nil }
 
-        let slotFrames = UInt64(CD_LEVEL_SLOT_FRAMES)
+        let slotFrames = UInt64(cd_level_table_slot_frames(table, run))
+        guard slotFrames > 0 else { return nil }
         let firstSlot = fromFrame / slotFrames
         let lastSlot = throughFrame / slotFrames
         guard lastSlot - firstSlot < UInt64(CD_LEVEL_SLOT_COUNT) else { return nil }

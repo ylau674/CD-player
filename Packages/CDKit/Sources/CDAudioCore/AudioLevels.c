@@ -10,11 +10,18 @@
 struct CDLevelTable {
     _Atomic uint64_t slots[CD_LEVEL_SLOT_COUNT];
     _Atomic uint32_t currentRun;
+    _Atomic uint32_t slotFrames;
 };
 
 static uint16_t sample_magnitude(int16_t sample)
 {
     return (uint16_t)(sample < 0 ? -(int32_t)sample : sample);
+}
+
+static uint16_t sample_magnitude_24(int32_t sample)
+{
+    uint64_t magnitude = sample < 0 ? (uint64_t)(-(int64_t)sample) : (uint64_t)sample;
+    return (uint16_t)(magnitude >> 16);
 }
 
 static uint64_t pack_slot(uint32_t run, uint64_t slot, uint16_t left, uint16_t right)
@@ -36,6 +43,7 @@ CDLevelTable *cd_level_table_create(void)
     if (!table) return NULL;
 
     atomic_init(&table->currentRun, 0);
+    atomic_init(&table->slotFrames, CD_LEVEL_SLOT_FRAMES);
     for (size_t i = 0; i < CD_LEVEL_SLOT_COUNT; ++i)
         atomic_init(&table->slots[i], 0);
 
@@ -53,7 +61,12 @@ void cd_level_table_destroy(CDLevelTable *table)
 
 uint32_t cd_level_table_begin_run(CDLevelTable *table)
 {
-    if (!table) return 0;
+    return cd_level_table_begin_run_for_rate(table, CD_DA_SAMPLE_RATE);
+}
+
+uint32_t cd_level_table_begin_run_for_rate(CDLevelTable *table, uint32_t sampleRate)
+{
+    if (!table || sampleRate == 0) return 0;
 
     uint32_t previous = atomic_load_explicit(&table->currentRun, memory_order_relaxed);
     uint32_t run = previous + 1;
@@ -63,35 +76,45 @@ uint32_t cd_level_table_begin_run(CDLevelTable *table)
         if (run == 0) run = 1;
         else run++;
     }
+    uint64_t scaledFrames = (uint64_t)sampleRate * CD_LEVEL_SLOT_FRAMES;
+    uint32_t slotFrames = (uint32_t)((scaledFrames + CD_DA_SAMPLE_RATE / 2) / CD_DA_SAMPLE_RATE);
+    if (slotFrames == 0) slotFrames = 1;
+    atomic_store_explicit(&table->currentRun, 0, memory_order_release);
+    atomic_store_explicit(&table->slotFrames, slotFrames, memory_order_relaxed);
     atomic_store_explicit(&table->currentRun, run, memory_order_release);
     return run;
 }
 
-bool cd_level_table_record_block(CDLevelTable *table, uint32_t run,
-                                 uint64_t startFrame, const int16_t *stereo,
-                                 size_t frameCount)
+static bool record_block(CDLevelTable *table, uint32_t run,
+                         uint64_t startFrame, const void *stereo,
+                         size_t frameCount, bool wide)
 {
     if (!table || !stereo || frameCount == 0 || frameCount > SIZE_MAX / CD_PCM_CHANNELS || run == 0 ||
         atomic_load_explicit(&table->currentRun, memory_order_acquire) != run ||
         (uint64_t)(frameCount - 1) > UINT64_MAX - startFrame)
         return false;
+    uint32_t slotFrames = atomic_load_explicit(&table->slotFrames, memory_order_relaxed);
 
     uint64_t lastFrame = startFrame + frameCount - 1;
-    if (lastFrame / CD_LEVEL_SLOT_FRAMES > CD_LEVEL_MAX_SLOT) return false;
+    if (lastFrame / slotFrames > CD_LEVEL_MAX_SLOT) return false;
 
     size_t offset = 0;
     while (offset < frameCount) {
         uint64_t frame = startFrame + offset;
-        uint64_t slot = frame / CD_LEVEL_SLOT_FRAMES;
-        size_t inSlot = (size_t)(frame % CD_LEVEL_SLOT_FRAMES);
-        size_t count = CD_LEVEL_SLOT_FRAMES - inSlot;
+        uint64_t slot = frame / slotFrames;
+        size_t inSlot = (size_t)(frame % slotFrames);
+        size_t count = slotFrames - inSlot;
         if (count > frameCount - offset) count = frameCount - offset;
 
         uint16_t left = 0, right = 0;
         for (size_t i = 0; i < count; ++i) {
             size_t sample = (offset + i) * CD_PCM_CHANNELS;
-            uint16_t leftSample = sample_magnitude(stereo[sample]);
-            uint16_t rightSample = sample_magnitude(stereo[sample + 1]);
+            uint16_t leftSample = wide
+                ? sample_magnitude_24(((const int32_t *)stereo)[sample])
+                : sample_magnitude(((const int16_t *)stereo)[sample]);
+            uint16_t rightSample = wide
+                ? sample_magnitude_24(((const int32_t *)stereo)[sample + 1])
+                : sample_magnitude(((const int16_t *)stereo)[sample + 1]);
             if (leftSample > left) left = leftSample;
             if (rightSample > right) right = rightSample;
         }
@@ -110,6 +133,20 @@ bool cd_level_table_record_block(CDLevelTable *table, uint32_t run,
     return atomic_load_explicit(&table->currentRun, memory_order_acquire) == run;
 }
 
+bool cd_level_table_record_block(CDLevelTable *table, uint32_t run,
+                                 uint64_t startFrame, const int16_t *stereo,
+                                 size_t frameCount)
+{
+    return record_block(table, run, startFrame, stereo, frameCount, false);
+}
+
+bool cd_level_table_record_block_24(CDLevelTable *table, uint32_t run,
+                                    uint64_t startFrame, const int32_t *stereo,
+                                    size_t frameCount)
+{
+    return record_block(table, run, startFrame, stereo, frameCount, true);
+}
+
 bool cd_level_table_read(const CDLevelTable *table, uint32_t run,
                          uint64_t frame, CDLevelPeaks *peaks)
 {
@@ -117,7 +154,9 @@ bool cd_level_table_read(const CDLevelTable *table, uint32_t run,
         atomic_load_explicit(&table->currentRun, memory_order_acquire) != run)
         return false;
 
-    uint64_t slot = frame / CD_LEVEL_SLOT_FRAMES;
+    uint32_t slotFrames = atomic_load_explicit(&table->slotFrames, memory_order_relaxed);
+    if (slotFrames == 0) return false;
+    uint64_t slot = frame / slotFrames;
     if (slot > CD_LEVEL_MAX_SLOT) return false;
     uint64_t packed = atomic_load_explicit(
         &table->slots[slot & CD_LEVEL_SLOT_INDEX_MASK], memory_order_acquire);
@@ -133,4 +172,13 @@ bool cd_level_table_read(const CDLevelTable *table, uint32_t run,
 uint32_t cd_level_table_current_run(const CDLevelTable *table)
 {
     return table ? atomic_load_explicit(&table->currentRun, memory_order_acquire) : 0;
+}
+
+uint32_t cd_level_table_slot_frames(const CDLevelTable *table, uint32_t run)
+{
+    if (!table || run == 0 ||
+        atomic_load_explicit(&table->currentRun, memory_order_acquire) != run)
+        return 0;
+    uint32_t slotFrames = atomic_load_explicit(&table->slotFrames, memory_order_relaxed);
+    return atomic_load_explicit(&table->currentRun, memory_order_acquire) == run ? slotFrames : 0;
 }

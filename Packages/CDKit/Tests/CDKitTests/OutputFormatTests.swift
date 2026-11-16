@@ -134,16 +134,33 @@ import Testing
         #expect(cd_audio_classify_output_stream_query(0, streamSize + 1) == CD_STREAM_TOPOLOGY_QUERY_ERROR)
     }
 
-    @Test func describesRedBookAudioAsTheSupportedSource() {
+    @Test func describesRedBookAnd24BitStereoPCMAsSupportedSources() {
         #expect(cd.sampleRate == 44_100 && cd.bitsPerChannel == 16 && cd.channelsPerFrame == 2)
         #expect(cd_source_format_supported(cd))
+        for rate in [44_100.0, 88_200.0] {
+            #expect(cd_source_format_supported(CDSourceFormat(
+                sampleRate: rate, bitsPerChannel: 24, channelsPerFrame: 2
+            )))
+        }
         for unsupported in [
             CDSourceFormat(sampleRate: 48_000, bitsPerChannel: 16, channelsPerFrame: 2),
-            CDSourceFormat(sampleRate: 44_100, bitsPerChannel: 24, channelsPerFrame: 2),
+            CDSourceFormat(sampleRate: 88_200, bitsPerChannel: 16, channelsPerFrame: 2),
+            CDSourceFormat(sampleRate: 48_000, bitsPerChannel: 24, channelsPerFrame: 2),
             CDSourceFormat(sampleRate: 44_100, bitsPerChannel: 16, channelsPerFrame: 4)
         ] {
             #expect(!cd_source_format_supported(unsupported))
         }
+    }
+
+    @Test func selects24BitFormatsAtTheDeclaredRate() {
+        let wide = CDSourceFormat(sampleRate: 88_200, bitsPerChannel: 24, channelsPerFrame: 2)
+        var virtual = virtualFormat(channels: 2, planar: false)
+        var physical = physicalFormat(channels: 2, bits: 24)
+        virtual.mSampleRate = 88_200
+        physical.mSampleRate = 88_200
+        #expect(cd_audio_format_supports_native_playback(wide, &virtual, &physical, false))
+        physical.mBitsPerChannel = 16
+        #expect(!cd_audio_format_supports_native_playback(wide, &virtual, &physical, false))
     }
 
     @Test func declinesOutputFormatsForASourceItCannotCarry() {

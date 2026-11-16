@@ -564,8 +564,11 @@ CDSourceFormat cd_source_format_compact_disc(void)
 
 bool cd_source_format_supported(CDSourceFormat format)
 {
-    return format.sampleRate == CD_DA_SAMPLE_RATE && format.bitsPerChannel == CD_DA_BITS_PER_CHANNEL &&
-        format.channelsPerFrame == CD_PCM_CHANNELS;
+    if (format.channelsPerFrame != CD_PCM_CHANNELS) return false;
+    if (format.sampleRate == CD_DA_SAMPLE_RATE && format.bitsPerChannel == CD_DA_BITS_PER_CHANNEL)
+        return true;
+    return format.bitsPerChannel == 24 &&
+        (format.sampleRate == 44100.0 || format.sampleRate == 88200.0);
 }
 
 static bool valid_source_rate(double rate)
@@ -1913,13 +1916,14 @@ static void *produce_audio(void *context)
 {
     CDPlayback *p = context;
     int16_t samples[PRODUCER_CHUNK * CD_PCM_CHANNELS];
+    int32_t wideSamples[PRODUCER_CHUNK * CD_PCM_CHANNELS];
     int32_t decodedSamples[PRODUCER_CHUNK * CD_PCM_CHANNELS];
     uint64_t cursor = p->startFrame;
     size_t lowWatermark = p->bufferFrames - PRODUCER_CHUNK;
     if (p->source.readPacing == CD_READ_BURST) {
         lowWatermark = p->bufferFrames / 3;
-        if (lowWatermark > CD_PLAYBACK_BURST_LOW_FRAMES)
-            lowWatermark = CD_PLAYBACK_BURST_LOW_FRAMES;
+        size_t tenSeconds = (size_t)(p->source.format.sampleRate * 10.0);
+        if (lowWatermark > tenSeconds) lowWatermark = tenSeconds;
     }
     if (lowWatermark < p->prefillFrames) lowWatermark = p->prefillFrames;
     bool refilling = true;
@@ -1947,7 +1951,10 @@ static void *produce_audio(void *context)
         };
         CDPCMReadResult reply = {0};
         CDError error = {0};
-        int result = p->source.read(p->source.context, cursor, samples, count, &request, &reply, &error);
+        bool wideSource = p->source.format.bitsPerChannel == 24;
+        int result = wideSource
+            ? p->source.readWide(p->source.context, cursor, wideSamples, count, &request, &reply, &error)
+            : p->source.read(p->source.context, cursor, samples, count, &request, &reply, &error);
         size_t generated = reply.framesRead;
         if (atomic_load_explicit(&p->producerStop, memory_order_acquire)) break;
         if (result != CD_OK) {
@@ -2008,16 +2015,34 @@ static void *produce_audio(void *context)
                 }
             }
             if (result == CD_OK && endOfSource) finalize_hdcd_detection(p);
+        } else if (wideSource) {
+            size_t sampleCount = generated * CD_PCM_CHANNELS;
+            for (size_t i = 0; i < sampleCount; ++i) {
+                if (wideSamples[i] < -8388608 || wideSamples[i] > 8388607) {
+                    result = fail(&error, CD_PRODUCER_ERROR, 0,
+                                  "The 24-bit PCM source returned a sample outside its declared range");
+                    break;
+                }
+                wideSamples[i] *= 256;
+            }
+            if (result == CD_OK && !write_output_frames(p, wideSamples, generated, true) &&
+                !atomic_load_explicit(&p->producerStop, memory_order_acquire))
+                result = fail(&error, CD_PRODUCER_ERROR, 0,
+                              "The PCM read-ahead buffer could not accept the source frames");
         } else {
             if (!write_output_frames(p, samples, generated, false) &&
                 !atomic_load_explicit(&p->producerStop, memory_order_acquire))
                 result = fail(&error, CD_PRODUCER_ERROR, 0,
                               "The PCM read-ahead buffer could not accept the source frames");
         }
-        if (result == CD_OK && p->levels &&
-            !cd_level_table_record_block(
+        bool levelsRecorded = !p->levels || (wideSource
+            ? cd_level_table_record_block_24(
                 p->levels, atomic_load_explicit(&p->levelRun, memory_order_acquire),
-                cursor, samples, generated)) {
+                cursor, wideSamples, generated)
+            : cd_level_table_record_block(
+                p->levels, atomic_load_explicit(&p->levelRun, memory_order_acquire),
+                cursor, samples, generated));
+        if (result == CD_OK && !levelsRecorded) {
             result = fail(&error, CD_PRODUCER_ERROR, 0, "Cannot record source audio levels");
         }
         if (result != CD_OK) {
@@ -2110,7 +2135,9 @@ CDPlayback *cd_playback_create_source_with_levels(CDPCMSource source, size_t buf
                                                   bool silentOutput, CDLevelTable *levels,
                                                   CDError *error)
 {
-    if (!source.read || source.frameCount == 0 || bufferFrames < PRODUCER_CHUNK) {
+    bool wideSource = source.format.bitsPerChannel == 24;
+    if ((!wideSource && !source.read) || (wideSource && !source.readWide) ||
+        source.frameCount == 0 || bufferFrames < PRODUCER_CHUNK) {
         fail(error, CD_INVALID_ARGUMENT, 0, "A PCM source and a buffer of at least 4096 frames are required");
         return NULL;
     }
@@ -2121,15 +2148,17 @@ CDPlayback *cd_playback_create_source_with_levels(CDPCMSource source, size_t buf
     }
     if (!cd_source_format_supported(source.format)) {
         char message[sizeof(((CDError *)0)->message)];
-        char rateName[32], supportedRateName[32];
+        char rateName[32];
         rate_text(source.format.sampleRate, rateName, sizeof(rateName));
-        rate_text(CD_DA_SAMPLE_RATE, supportedRateName, sizeof(supportedRateName));
         snprintf(message, sizeof(message),
                  "This disc's audio (%s, %u-bit, %u channels) is not supported. "
-                 "CD Player plays %s %u-bit stereo audio CDs",
-                 rateName, source.format.bitsPerChannel, source.format.channelsPerFrame,
-                 supportedRateName, CD_DA_BITS_PER_CHANNEL);
+                 "Supported formats are 44.1 kHz 16-bit stereo CD audio and 24-bit stereo PCM at 44.1 or 88.2 kHz",
+                 rateName, source.format.bitsPerChannel, source.format.channelsPerFrame);
         fail(error, CD_FORMAT_UNAVAILABLE, 0, message);
+        return NULL;
+    }
+    if (wideSource && source.hdcdEligible) {
+        fail(error, CD_INVALID_ARGUMENT, 0, "A 24-bit PCM source cannot enable HDCD processing");
         return NULL;
     }
     CDPlayback *p = calloc(1, sizeof(*p));
@@ -2147,7 +2176,8 @@ CDPlayback *cd_playback_create_source_with_levels(CDPCMSource source, size_t buf
     p->totalFrames = source.frameCount;
     p->levels = levels;
     p->bufferFrames = bufferFrames;
-    p->prefillFrames = bufferFrames < CD_PLAYBACK_PREFILL_FRAMES ? bufferFrames : CD_PLAYBACK_PREFILL_FRAMES;
+    size_t twoSeconds = (size_t)(source.format.sampleRate * 2.0);
+    p->prefillFrames = bufferFrames < twoSeconds ? bufferFrames : twoSeconds;
     p->silentOutput = silentOutput;
     p->hdcdDecodeEnabled = true;
     p->hdcdKnownStatus = source.hdcdEligible ? CD_HDCD_DETECTING : CD_HDCD_NOT_APPLICABLE;
@@ -2409,14 +2439,17 @@ int cd_playback_prepare(CDPlayback *p, uint64_t startFrame, CDError *error)
         return fail(error, CD_INVALID_ARGUMENT, 0, "Playback must start within the disc");
     if (p->producerStarted || p->ioProc || p->converter)
         return fail(error, CD_INVALID_ARGUMENT, 0, "Stop playback before preparing another producer");
-    /* Only HDCD decoding produces more than 16 bits, and only these settings let it begin. */
+    /* HDCD and 24-bit source PCM both require the wide ring. */
     bool decodingPossible = p->hdcd && p->hdcdDecodeEnabled && p->hdcdOutputSupports20;
     bool collectsHDCDStartup = decodingPossible && p->hdcdKnownStatus == CD_HDCD_DETECTING;
-    if (!cd_ring_configure(p->ring, decodingPossible))
+    bool wideSource = p->source.format.bitsPerChannel == 24;
+    if (!cd_ring_configure(p->ring, decodingPossible || wideSource))
         return fail(error, CD_OUT_OF_MEMORY, errno, "Cannot reclaim the PCM read-ahead buffer");
     if (p->hdcd && !cd_page_buffer_claim(&p->hdcdStartup, collectsHDCDStartup ? hdcd_startup_bytes() : 0))
         return fail(error, CD_OUT_OF_MEMORY, errno, "Cannot reclaim the HDCD detection buffer");
-    uint32_t levelRun = p->levels ? cd_level_table_begin_run(p->levels) : 0;
+    uint32_t levelRun = p->levels
+        ? cd_level_table_begin_run_for_rate(p->levels, (uint32_t)p->source.format.sampleRate)
+        : 0;
     if (p->levels && levelRun == 0)
         return fail(error, CD_PRODUCER_ERROR, 0, "Cannot start source audio-level tracking");
     p->startFrame = startFrame;
